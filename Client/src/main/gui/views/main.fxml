@@ -13,6 +13,11 @@
             <ComboBox fx:id="languageBox" prefWidth="180"/>
         </HBox>
     </top>
+    <top>
+        <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-background-color: #f8e2ff;">
+            <Label fx:id="usernameLabel" text="Пользователь: " style="-fx-border-color: #ccc; -fx-padding: 6; -fx-font-weight: bold;"/>
+        </HBox>
+    </top>
     <left>
         <VBox spacing="8" style="-fx-padding: 15; -fx-background-color: transparent;" prefWidth="200" maxWidth="200" minWidth="140">
             <Label text="%main.commands" style="-fx-font-weight: bold; -fx-text-fill: #fff;"/>

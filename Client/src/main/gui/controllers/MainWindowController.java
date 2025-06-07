@@ -25,7 +25,9 @@ public class MainWindowController {
     @FXML private TextField argumentField;
     @FXML private Button registerButton;
     @FXML private Button exitButton;
+    @FXML private Label usernameLabel;
 
+    private String username;
     private NetworkClient networkClient;
     private Integer userId;
 
@@ -39,9 +41,11 @@ public class MainWindowController {
             "count_less", "execute_script", "removebyid"
     );
 
-    public void initSession(NetworkClient networkClient, Integer userId) {
+    public void initSession(NetworkClient networkClient, Integer userId, String username) {
         this.networkClient = networkClient;
         this.userId = userId;
+        this.username = username;
+        usernameLabel.setText("Пользователь: " + username);
         List<String> visibleCommands = new ArrayList<>(commands);
         commandListView.setItems(FXCollections.observableArrayList(visibleCommands));
     }

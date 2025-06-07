@@ -39,13 +39,13 @@ public class MainApp extends Application {
         stage.show();
     }
 
-    public static void showMainWindow(NetworkClient client, Integer userId) throws Exception {
+    public static void showMainWindow(NetworkClient client, Integer userId, String username) throws Exception {
         FXMLLoader loader = new FXMLLoader(MainApp.class.getResource("/main/gui/views/main.fxml"), getBundle());
         Stage stage = new Stage();
         stage.setTitle(bundle.getString("main.title"));
         stage.setScene(new Scene(loader.load()));
         MainWindowController controller = loader.getController();
-        controller.initSession(client, userId);
+        controller.initSession(client, userId, username);
         stage.show();
     }
 }

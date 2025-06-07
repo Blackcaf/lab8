@@ -64,7 +64,10 @@ public class ExecuteScript extends Command {
                         for (int i = 0; i < 9; i++) {
                             String nextLine = reader.readLine();
                             if (nextLine == null) {
-                                return new ExecutionResponse(false, "Неожиданный конец файла при чтении параметров команды " + commandName);
+                                return new ExecutionResponse(false, 
+                                    String.format("Неожиданный конец файла при чтении параметров команды %s. " +
+                                    "Прочитано %d из 9 параметров. Проверьте, что все параметры указаны и нет пустых строк.", 
+                                    commandName, inputLines.size()));
                             }
                             nextLine = nextLine.trim();
                             if (nextLine.isEmpty()) {
@@ -74,33 +77,65 @@ public class ExecuteScript extends Command {
                             inputLines.add(nextLine);
                         }
                         // Устанавливаем параметры в объект HumanBeing в правильном порядке
-                        if (inputLines.size() >= 1) commandHumanBeing.setName(inputLines.get(0));
-                        if (inputLines.size() >= 3) {
+                        if (commandName.equals("update")) {
                             try {
-                                double x = Double.parseDouble(inputLines.get(1));
-                                float y = Float.parseFloat(inputLines.get(2));
-                                commandHumanBeing.setCoordinates(new Coordinates(x, y));
+                                Long id = Long.parseLong(inputLines.get(0));
+                                commandHumanBeing.setId(id);
+                                // Удаляем ID из списка параметров, чтобы не мешал установке остальных полей
+                                inputLines.remove(0);
                             } catch (NumberFormatException e) {
-                                return new ExecutionResponse(false, "Ошибка при чтении координат: " + e.getMessage());
+                                return new ExecutionResponse(false, "Ошибка: ID должен быть числом");
                             }
                         }
-                        if (inputLines.size() >= 4) commandHumanBeing.setRealHero(Boolean.parseBoolean(inputLines.get(3)));
-                        if (inputLines.size() >= 5) commandHumanBeing.setHasToothpick(Boolean.parseBoolean(inputLines.get(4)));
-                        if (inputLines.size() >= 6) {
+                        if (inputLines.size() >= 1) commandHumanBeing.setName(inputLines.get(0));
+                        if (inputLines.size() >= 2) {
                             try {
-                                commandHumanBeing.setImpactSpeed(Long.parseLong(inputLines.get(5)));
+                                int x = Integer.parseInt(inputLines.get(1));
+                                int y = Integer.parseInt(inputLines.get(2));
+                                commandHumanBeing.setCoordinates(new Coordinates(x, y));
                             } catch (NumberFormatException e) {
-                                return new ExecutionResponse(false, "Ошибка при чтении impactSpeed: " + e.getMessage());
+                                return new ExecutionResponse(false, "Ошибка: координаты должны быть числами");
+                            }
+                        }
+                        if (inputLines.size() >= 4) {
+                            try {
+                                Long impactSpeed = Long.parseLong(inputLines.get(3));
+                                commandHumanBeing.setImpactSpeed(impactSpeed);
+                            } catch (NumberFormatException e) {
+                                return new ExecutionResponse(false, "Ошибка: скорость удара должна быть числом");
+                            }
+                        }
+                        if (inputLines.size() >= 5) {
+                            try {
+                                boolean realHero = Boolean.parseBoolean(inputLines.get(4));
+                                commandHumanBeing.setRealHero(realHero);
+                            } catch (Exception e) {
+                                return new ExecutionResponse(false, "Ошибка: параметр realHero должен быть true или false");
+                            }
+                        }
+                        if (inputLines.size() >= 6) {
+                            String hasToothpick = inputLines.get(5);
+                            if (!hasToothpick.equals("null")) {
+                                try {
+                                    boolean hasToothpickValue = Boolean.parseBoolean(hasToothpick);
+                                    commandHumanBeing.setHasToothpick(hasToothpickValue);
+                                } catch (Exception e) {
+                                    return new ExecutionResponse(false, "Ошибка: параметр hasToothpick должен быть true, false или null");
+                                }
                             }
                         }
                         if (inputLines.size() >= 7) {
                             try {
-                                commandHumanBeing.setWeaponType(WeaponType.valueOf(inputLines.get(6)));
+                                WeaponType weaponType = WeaponType.valueOf(inputLines.get(6).toUpperCase());
+                                commandHumanBeing.setWeaponType(weaponType);
                             } catch (IllegalArgumentException e) {
-                                return new ExecutionResponse(false, "Ошибка при чтении weaponType: " + e.getMessage());
+                                return new ExecutionResponse(false, "Ошибка: неверный тип оружия");
                             }
                         }
-                        if (inputLines.size() >= 8) commandHumanBeing.setMood(inputLines.get(7));
+                        if (inputLines.size() >= 8) {
+                            String moodStr = inputLines.get(7).toUpperCase();
+                            commandHumanBeing.setMood(moodStr);
+                        }
                         if (inputLines.size() >= 9) {
                             String carName = inputLines.get(8);
                             commandHumanBeing.setCar(new Car(carName));

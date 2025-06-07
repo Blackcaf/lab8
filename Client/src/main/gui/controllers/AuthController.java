@@ -103,7 +103,7 @@ public class AuthController {
                 userId = Integer.parseInt(response.getMessage());
                 messageLabel.setText(bundle.getString("auth.login.success"));
                 try {
-                    MainApp.showMainWindow(networkClient, userId);
+                    MainApp.showMainWindow(networkClient, userId, username);
                     Stage stage = (Stage) loginButton.getScene().getWindow();
                     stage.close();
                 } catch (Exception e) {
