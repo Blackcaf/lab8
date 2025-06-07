@@ -11,6 +11,10 @@ import main.gui.MainApp;
 import main.gui.NetworkClient;
 import models.HumanBeing;
 import utility.ExecutionResponse;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.scene.image.Image;
+import javafx.scene.control.Button;
 
 import java.io.IOException;
 import java.util.*;
@@ -27,10 +31,10 @@ public class MainWindowController {
     @FXML private Button exitButton;
     @FXML private Label usernameLabel;
 
+
     private String username;
     private NetworkClient networkClient;
     private Integer userId;
-
     private ResourceBundle bundle;
 
     private int lastLanguageIndex = -1;
@@ -40,6 +44,19 @@ public class MainWindowController {
             "help", "filter_starts", "print_unique",
             "count_less", "execute_script", "removebyid"
     );
+
+    @FXML
+    private void handleShow(List<HumanBeing> humans, int currentUserId) throws IOException {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/main/gui/views/show.fxml"));
+        Parent root = loader.load();
+        ShowController controller = loader.getController();
+        controller.setNetworkClient(networkClient); // <-- добавьте это!
+        controller.setData(humans, currentUserId);
+        Stage stage = new Stage();
+        stage.setScene(new Scene(root));
+        stage.setTitle("HumanBeing Table");
+        stage.show();
+    }
 
     public void initSession(NetworkClient networkClient, Integer userId, String username) {
         this.networkClient = networkClient;
@@ -96,7 +113,6 @@ public class MainWindowController {
         exitButton.setOnAction(event -> exitApp());
     }
 
-    /** Обновляет все тексты на языке bundle */
     private void updateTexts() {
         executeButton.setText(bundle.getString("main.execute"));
         registerButton.setText(bundle.getString("main.register"));
@@ -202,6 +218,17 @@ public class MainWindowController {
                         .filter(line -> !line.trim().startsWith("login") && !line.trim().startsWith("register"))
                         .collect(Collectors.joining("\n"));
                 commandOutput.setText(filtered);
+            } else if ("show".equals(command)) {
+                List<HumanBeing> humans = response.getHumanBeings();
+                if (humans != null) {
+                    try {
+                        handleShow(humans, userId);
+                    } catch (IOException e) {
+                        commandOutput.setText("Ошибка открытия окна: " + e.getMessage());
+                    }
+                } else {
+                    commandOutput.setText("Нет данных для отображения");
+                }
             } else {
                 commandOutput.setText(response.getMessage());
             }

@@ -17,6 +17,13 @@ public class Car implements Serializable {
         return name;
     }
 
+    public void setName(String name) {
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("Имя машины не может быть null или пустым");
+        }
+        this.name = name;
+    }
+
     @Override
     public String toString() {
         return "Car{name='" + name + "'}";

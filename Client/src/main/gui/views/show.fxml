@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="main.gui.controllers.ShowController">
+    <top>
+        <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-padding: 10;">
+            <Label text="Фильтр:"/>
+            <TextField fx:id="filterField" promptText="Введите текст для фильтрации..."/>
+        </HBox>
+    </top>
+    <center>
+        <TableView fx:id="tableView" editable="true">
+            <columns>
+                <TableColumn fx:id="idColumn" text="id"/>
+                <TableColumn fx:id="nameColumn" text="name"/>
+                <TableColumn fx:id="coordinateXColumn" text="coordinate_x"/>
+                <TableColumn fx:id="coordinateYColumn" text="coordinate_y"/>
+                <TableColumn fx:id="creationDateColumn" text="creation_date"/>
+                <TableColumn fx:id="impactSpeedColumn" text="impact_speed"/>
+                <TableColumn fx:id="realHeroColumn" text="real_hero"/>
+                <TableColumn fx:id="hasToothpickColumn" text="has_toothpick"/>
+                <TableColumn fx:id="weaponTypeColumn" text="weapon_type"/>
+                <TableColumn fx:id="moodColumn" text="mood"/>
+                <TableColumn fx:id="carNameColumn" text="car_name"/>
+                <TableColumn fx:id="userIdColumn" text="user_id"/>
+                <TableColumn fx:id="editColumn" text=""/>
+            </columns>
+        </TableView>
+    </center>
+</BorderPane>

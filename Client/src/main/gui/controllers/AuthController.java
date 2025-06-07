@@ -8,11 +8,6 @@ import main.gui.NetworkClient;
 import models.Car;
 import models.HumanBeing;
 import utility.ExecutionResponse;
-import javafx.scene.media.Media;
-import javafx.scene.media.MediaPlayer;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 
 import java.io.IOException;
@@ -30,13 +25,10 @@ public class AuthController {
     @FXML private Label enterDetailsLabel;
     @FXML private Label usernameLabel;
     @FXML private Label passwordLabel;
-    @FXML private Button muteButton;
-    @FXML private ImageView muteIcon;
+
 
     private NetworkClient networkClient;
     private Integer userId;
-    private MediaPlayer mediaPlayer;
-    private boolean isMuted = false;
     private int lastLanguageIndex = -1;
 
     private ResourceBundle bundle;
@@ -73,27 +65,6 @@ public class AuthController {
             bundle = MainApp.getBundle();
             updateTexts();
         });
-        initBackgroundMusic();
-    }
-
-    private void initBackgroundMusic() {
-        String musicPath = getClass().getResource("/music/background.mp3").toExternalForm();
-        Media media = new Media(musicPath);
-        mediaPlayer = new MediaPlayer(media);
-        mediaPlayer.setCycleCount(MediaPlayer.INDEFINITE); // Зацикливаем
-        mediaPlayer.play();
-    }
-
-    @FXML
-    private void onMuteMusic() {
-        if (isMuted) {
-            mediaPlayer.play();
-            muteIcon.setImage(new Image(getClass().getResourceAsStream("/icons/volume_up.png")));
-        } else {
-            mediaPlayer.pause();
-            muteIcon.setImage(new Image(getClass().getResourceAsStream("/icons/volume_off.png")));
-        }
-        isMuted = !isMuted;
     }
 
     private void updateTexts() {

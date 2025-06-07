@@ -4,6 +4,7 @@ import managers.CollectionManager;
 import models.HumanBeing;
 import utility.Console;
 import utility.ExecutionResponse;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
@@ -37,15 +38,15 @@ public class Show extends Command {
             return new ExecutionResponse(false, bundle.getString("show.error.not_authorized"));
         }
 
+        List<HumanBeing> allHumanBeingsList = collectionManager.getCollection();
+
         StringBuilder response = new StringBuilder(bundle.getString("show.header") + "\n");
-        List<HumanBeing> collection = collectionManager.getCollection();
         boolean found = false;
-        int totalElements = 0;
+        int totalElements = allHumanBeingsList.size();
         int userElements = 0;
 
-        for (HumanBeing human : collection) {
-            totalElements++;
-            if (human.getUserId().equals(userId)) {
+        for (HumanBeing human : allHumanBeingsList) {
+            if (human.getUserId() != null && human.getUserId().equals(userId)) {
                 response.append(human.toString()).append("\n");
                 found = true;
                 userElements++;
@@ -59,6 +60,7 @@ public class Show extends Command {
             response.append(bundle.getString("show.no_elements"));
         }
 
-        return new ExecutionResponse(true, response.toString());
+        // Возвращаем полный список для клиента (таблица)
+        return new ExecutionResponse(true, "Список успешно получен", allHumanBeingsList);
     }
 }
