@@ -34,7 +34,7 @@
                     <graphic>
                         <ImageView fx:id="muteIcon" fitWidth="32" fitHeight="32"
                                    pickOnBounds="true"
-                                   image="@images.png"/>
+                                   image="@/icons/volume_up.png"/>
                     </graphic>
                 </Button>
             </VBox>

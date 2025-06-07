@@ -26,6 +26,17 @@
                 <Button text="%auth.login" fx:id="loginButton" onAction="#handleLogin" prefWidth="320" styleClass="drive-main-btn"/>
                 <Button text="%auth.register" fx:id="registerButton" onAction="#handleRegister" prefWidth="320" styleClass="drive-outline-btn"/>
                 <ComboBox fx:id="languageBox" prefWidth="180" styleClass="drive-field"/>
+                <Button fx:id="muteButton" layoutX="150" layoutY="350"
+                        graphicTextGap="8"
+                        style="-fx-background-color: transparent;"
+                        onAction="#onMuteMusic"
+                        prefWidth="40" prefHeight="40">
+                    <graphic>
+                        <ImageView fx:id="muteIcon" fitWidth="32" fitHeight="32"
+                                   pickOnBounds="true"
+                                   image="@/icons/volume_up.png"/>
+                    </graphic>
+                </Button>
             </VBox>
         </AnchorPane>
     </left>
