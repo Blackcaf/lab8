@@ -1,0 +1,104 @@
+.root {
+    /* Night city neon gradient background */
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #1a1633, #ff2c7a 80%, #f8e2ff 100%);
+}
+
+.drive-field {
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-border-width: 2;
+    -fx-background-color: #241c36cc;
+    -fx-border-color: #ff2c7a;
+    -fx-padding: 10 16 10 16;
+    -fx-font-size: 15px;
+    -fx-text-fill: #fff;
+    -fx-effect: dropshadow(gaussian, #ff2c7a88, 6, 0.3, 0, 1);
+}
+
+.drive-field:focused {
+    -fx-border-color: #fff;
+    -fx-effect: dropshadow(gaussian, #ff2c7a, 10, 0.9, 0, 2);
+}
+
+.drive-main-btn {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #ff2c7a, #7d1b97);
+    -fx-text-fill: #fff;
+    -fx-background-radius: 14;
+    -fx-font-size: 20px;
+    -fx-font-family: "Arial Black";
+    -fx-font-weight: bold;
+    -fx-padding: 12 0 12 0;
+    -fx-border-color: #fff;
+    -fx-border-radius: 14;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, #ff2c7add, 12, 0.7, 0, 6);
+}
+.drive-main-btn:hover {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #ffb3ec, #ff2c7a);
+    -fx-text-fill: #7d1b97;
+}
+
+.drive-outline-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #ff2c7a;
+    -fx-border-color: #ff2c7a;
+    -fx-border-width: 2;
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-font-size: 20px;
+    -fx-font-family: "Arial Black";
+    -fx-font-weight: bold;
+    -fx-padding: 12 0 12 0;
+    -fx-effect: dropshadow(gaussian, #ff2c7a77, 8, 0.3, 0, 2);
+}
+.drive-outline-btn:hover {
+    -fx-background-color: #ff2c7a22;
+    -fx-text-fill: #fff;
+    -fx-border-color: #fff;
+}
+.combo-box .list-cell {
+    -fx-text-fill: #fff;
+}
+.combo-box .text {
+    -fx-fill: #fff;
+}
+/* Верхняя часть ComboBox (как кнопка) */
+.combo-box.drive-field {
+    -fx-background-color: #44114d;
+    -fx-border-color: #fff;
+    -fx-border-width: 2;
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-font-size: 16px;
+    -fx-text-fill: #fff;
+    -fx-effect: dropshadow(gaussian, #ff2c7add, 8, 0.4, 0, 2);
+    -fx-padding: 8 16 8 16;
+}
+
+/* Текст выбранного языка */
+.combo-box.drive-field .text {
+    -fx-fill: #fff;
+    -fx-font-size: 16px;
+}
+
+/* Выпадающий список (ListView) */
+.combo-box-popup .list-view {
+    -fx-background-color: #44114d;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-effect: dropshadow(gaussian, #ff2c7add, 12, 0.6, 0, 4);
+}
+
+/* Элементы выпадающего списка */
+.combo-box-popup .list-view .list-cell {
+    -fx-background-color: #44114d;
+    -fx-text-fill: #fff;
+    -fx-font-size: 16px;
+}
+
+/* Наведение мышки — неоновый акцент */
+.combo-box-popup .list-view .list-cell:hover,
+.combo-box-popup .list-view .list-cell:selected {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #ff2c7a 30%, #7d1b97 100%);
+    -fx-text-fill: #fff;
+}

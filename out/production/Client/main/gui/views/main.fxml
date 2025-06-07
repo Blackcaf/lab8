@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="main.gui.controllers.MainWindowController"
+            stylesheets="@main.css"
+            prefWidth="950" prefHeight="500">
+    <top>
+        <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-padding: 10;">
+            <Label text="%main.language" style="-fx-text-fill: #fff;"/>
+            <ComboBox fx:id="languageBox" prefWidth="180"/>
+        </HBox>
+    </top>
+    <left>
+        <VBox spacing="8" style="-fx-padding: 15; -fx-background-color: transparent;" prefWidth="200" maxWidth="200" minWidth="140">
+            <Label text="%main.commands" style="-fx-font-weight: bold; -fx-text-fill: #fff;"/>
+            <ListView fx:id="commandListView" prefWidth="160" maxWidth="180" minWidth="120" styleClass="commands-list"/>
+        </VBox>
+    </left>
+    <center>
+        <VBox spacing="10" style="-fx-padding: 15;">
+            <Label fx:id="commandTitle" text="%main.commandTitle" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #fff;" />
+            <TextArea fx:id="commandOutput" editable="false" wrapText="true" prefRowCount="15"
+                      style="-fx-background-radius: 14; -fx-control-inner-background: #4a4157; -fx-text-fill: #fff;"/>
+            <HBox spacing="20" alignment="CENTER_LEFT">
+                <Button fx:id="executeButton" text="%main.execute" minWidth="124"/>
+                <TextField fx:id="argumentField" promptText="%main.argument" prefWidth="250"
+                           style="-fx-background-radius: 14; -fx-control-inner-background: #241c36cc; -fx-text-fill: #fff;"/>
+            </HBox>
+        </VBox>
+    </center>
+    <bottom>
+        <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-padding: 10;">
+            <Button fx:id="registerButton" text="%main.register" minWidth="170"/>
+            <Button fx:id="exitButton" text="%main.exit" minWidth="100"/>
+        </HBox>
+    </bottom>
+</BorderPane>

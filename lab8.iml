@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="WEB_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$" />
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="postgresql-42.7.5" level="project" />
+    <orderEntry type="library" name="lib" level="project" />
+    <orderEntry type="library" name="javafx-controls-21" level="project" />
+    <orderEntry type="library" name="javafx-fxml-21" level="project" />
+    <orderEntry type="library" name="javafx-graphics-21" level="project" />
+    <orderEntry type="library" name="javafx-base-21" level="project" />
+  </component>
+</module>

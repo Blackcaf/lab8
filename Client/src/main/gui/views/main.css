@@ -1,0 +1,109 @@
+.root {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #1a1633, #ff2c7a 80%, #f8e2ff 100%);
+}
+
+/* Кнопки и ComboBox — как выбор языка на входе */
+.button, .combo-box {
+    -fx-background-color: #44114d;
+    -fx-text-fill: #fff;
+    -fx-background-radius: 18;
+    -fx-border-radius: 18;
+    -fx-border-color: #fff;
+    -fx-border-width: 2;
+    -fx-font-size: 16px;
+    -fx-font-family: "Arial Black";
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, #ff2c7add, 8, 0.4, 0, 2);
+    -fx-padding: 8 16 8 16;
+}
+.button:focused, .button:hover {
+    -fx-border-color: #ffb3ec;
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #ff2c7a 30%, #7d1b97 100%);
+    -fx-text-fill: #fff;
+}
+.button:disabled {
+    -fx-opacity: 0.55;
+    -fx-text-fill: #ffe1fa;
+    -fx-background-color: #44114d;
+}
+.combo-box .text {
+    -fx-fill: #fff;
+    -fx-font-size: 16px;
+}
+
+/* Выпадающее меню ComboBox */
+.combo-box-popup .list-view {
+    -fx-background-color: #44114d;
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-effect: dropshadow(gaussian, #ff2c7add, 12, 0.6, 0, 4);
+}
+.combo-box-popup .list-view .list-cell {
+    -fx-background-color: #44114d;
+    -fx-text-fill: #fff;
+    -fx-font-size: 16px;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+}
+.combo-box-popup .list-view .list-cell:hover,
+.combo-box-popup .list-view .list-cell:selected {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #ff2c7a 30%, #7d1b97 100%);
+    -fx-text-fill: #fff;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+}
+
+/* Список команд — стиль в тему, меньше ширина, закругление и неоновый акцент при выборе */
+.commands-list {
+    -fx-background-color: #2e1b38;
+    -fx-background-radius: 16;
+    -fx-border-radius: 16;
+    -fx-border-color: #fff;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, #ff2c7add, 4, 0.4, 0, 2);
+    -fx-padding: 4 0 4 0;
+    /* Высота примерно под количество команд — 13 строк по 26px + padding + рамка */
+    -fx-pref-height: 360;
+    -fx-max-height: 360;
+    -fx-min-height: 360;
+}
+.commands-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #fff;
+    -fx-font-size: 15px;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-padding: 4 12 4 12;
+}
+.commands-list .list-cell:selected, .commands-list .list-cell:filled:selected, .commands-list .list-cell:selected:focused {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #ff2c7a 40%, #7d1b97 100%);
+    -fx-text-fill: #fff;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-border-color: #ffb3ec;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, #ff2c7add, 10, 0.7, 0, 2);
+}
+.commands-list .list-cell:hover {
+    -fx-background-color: #7d1b97;
+    -fx-text-fill: #fff;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+}
+
+/* Поле "Аргумент" — белый текст, фиолетовый фон, больше ширина */
+.text-field {
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-border-color: #fff;
+    -fx-border-width: 1.5;
+    -fx-control-inner-background: #44114d;
+    -fx-text-fill: #fff;
+    -fx-font-size: 15px;
+    -fx-padding: 8 16 8 16;
+    -fx-pref-width: 320px; /* увеличь если надо еще шире */
+    -fx-effect: none;
+}
+.text-field:focused {
+    -fx-border-color: #ffb3ec;
+}

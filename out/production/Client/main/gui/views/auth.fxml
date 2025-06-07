@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="main.gui.controllers.AuthController"
+            stylesheets="@auth.css"
+            prefWidth="950" prefHeight="600"
+            style="-fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #1a1633, #ff2c7a 80%, #f8e2ff 100%);">
+    <left>
+        <AnchorPane minWidth="480" maxWidth="480" prefWidth="480" style="-fx-background-color: transparent;">
+            <VBox spacing="18" alignment="TOP_CENTER" prefWidth="480" layoutX="0" layoutY="0"
+                  style="-fx-padding: 48 40 48 40;">
+                <Label fx:id="welcomeLabel" text="%auth.welcome"
+                       style="-fx-font-family: 'Georgia'; -fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: #ff2c7a; -fx-effect: dropshadow(gaussian, #fff, 0, 0, 0, 2);"/>
+                <Label fx:id="enterDetailsLabel" text="%auth.enter_details"
+                       style="-fx-text-fill: #ffd6f4; -fx-font-size: 15px; -fx-font-style: italic;"/>
+                <VBox spacing="12" alignment="CENTER_LEFT" prefWidth="360" style="-fx-padding: 20 0 0 0;">
+                    <Label fx:id="usernameLabel" text="%auth.username" style="-fx-text-fill: #f8e2ff; -fx-font-size: 14px;"/>
+                    <TextField fx:id="usernameField" promptText="%auth.username" prefWidth="320" styleClass="drive-field"/>
+                    <Label fx:id="passwordLabel" text="%auth.password" style="-fx-text-fill: #f8e2ff; -fx-font-size: 14px;"/>
+                    <PasswordField fx:id="passwordField" promptText="%auth.password" prefWidth="320" styleClass="drive-field"/>
+                    <Label fx:id="messageLabel" style="-fx-text-fill: #ff2c7a; -fx-font-size: 13px;"/>
+                </VBox>
+                <Button text="%auth.login" fx:id="loginButton" onAction="#handleLogin" prefWidth="320" styleClass="drive-main-btn"/>
+                <Button text="%auth.register" fx:id="registerButton" onAction="#handleRegister" prefWidth="320" styleClass="drive-outline-btn"/>
+                <ComboBox fx:id="languageBox" prefWidth="180" styleClass="drive-field"/>
+            </VBox>
+        </AnchorPane>
+    </left>
+    <center>
+        <AnchorPane>
+            <ImageView fitWidth="470" fitHeight="700" layoutX="0" layoutY="0" preserveRatio="false">
+                <image>
+                    <Image url="@gosling.png"/>
+                </image>
+            </ImageView>
+        </AnchorPane>
+    </center>
+</BorderPane>
