@@ -5,6 +5,7 @@ import managers.DatabaseManager;
 import models.HumanBeing;
 import utility.Console;
 import utility.ExecutionResponse;
+import java.util.List;
 
 public class Update extends Command {
     private final Console console;
@@ -35,7 +36,12 @@ public class Update extends Command {
             console.println("id=" + hb.getId() + ", userId=" + hb.getUserId());
         }
 
-        HumanBeing oldHuman = collectionManager.getCollectionMap().get(id);
+        List<HumanBeing> collection = collectionManager.getCollection();
+        HumanBeing oldHuman = collection.stream()
+                .filter(hb -> hb.getId().equals(id))
+                .findFirst()
+                .orElse(null);
+
         if (oldHuman == null) {
             console.println("Элемент с id " + id + " не найден в коллекции");
             return new ExecutionResponse(false, "Ошибка: элемент с id " + id + " не существует в коллекции");

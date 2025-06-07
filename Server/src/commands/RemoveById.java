@@ -5,6 +5,8 @@ import models.HumanBeing;
 import utility.Console;
 import utility.ExecutionResponse;
 
+import java.util.List;
+
 public class RemoveById extends Command {
     private final Console console;
     private final CollectionManager collectionManager;
@@ -26,14 +28,13 @@ public class RemoveById extends Command {
         }
 
         Long id = argument.getId();
-        // Debug: Print collection contents
-        console.println("Содержимое коллекции перед удалением id=" + id + ":");
-        for (Long key : collectionManager.getCollectionMap().keySet()) {
-            HumanBeing hb = collectionManager.getCollectionMap().get(key);
-            console.println("id=" + hb.getId() + ", userId=" + hb.getUserId());
-        }
+        List<HumanBeing> collection = collectionManager.getCollection();
+        
+        HumanBeing humanBeing = collection.stream()
+                .filter(hb -> hb.getId().equals(id))
+                .findFirst()
+                .orElse(null);
 
-        HumanBeing humanBeing = collectionManager.getCollectionMap().get(id);
         if (humanBeing == null) {
             console.println("Элемент с id " + id + " не найден в коллекции");
             return new ExecutionResponse(false, "Ошибка: элемент с id " + id + " не существует в коллекции");

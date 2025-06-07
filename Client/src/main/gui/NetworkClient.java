@@ -1,5 +1,6 @@
 package main.gui;
 
+import models.HumanBeing;
 import utility.ExecutionResponse;
 
 import java.io.*;
@@ -21,15 +22,16 @@ public class NetworkClient implements Closeable {
         }
     }
 
-    public ExecutionResponse sendCommand(String command, Object argument, Integer userId) {
+    public ExecutionResponse sendCommand(String command, HumanBeing argument, Integer userId) {
         try {
             output.writeObject(command);
             output.writeObject(argument);
             output.writeObject(userId);
             output.flush();
             return (ExecutionResponse) input.readObject();
-        } catch (Exception e) {
-            return new ExecutionResponse(false, "Ошибка клиента: " + e.getMessage());
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+            return new ExecutionResponse(false, "Ошибка при отправке команды: " + e.getMessage());
         }
     }
 

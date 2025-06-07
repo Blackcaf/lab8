@@ -119,7 +119,9 @@ public class MainWindowController {
                     }
                     try {
                         Long id = Long.parseLong(arg);
-                        ExecutionResponse getResp = networkClient.sendCommand("get_by_id", id, userId);
+                        HumanBeing humanBeing = new HumanBeing();
+                        humanBeing.setId(id);
+                        ExecutionResponse getResp = networkClient.sendCommand("get_by_id", humanBeing, userId);
                         if (!getResp.isSuccess() || getResp.getHumanBeing() == null) {
                             commandOutput.setText(bundle.getString("main.update.not_found"));
                             return;
@@ -144,7 +146,7 @@ public class MainWindowController {
                         return;
                     }
                     break;
-                case "count_less_than_impact_speed":
+                case "count_less":
                     if (arg.isEmpty()) {
                         commandOutput.setText(bundle.getString("main.count_less.need_value"));
                         return;
@@ -159,7 +161,7 @@ public class MainWindowController {
                         return;
                     }
                     break;
-                case "filter_starts_with_name":
+                case "filter_starts":
                     if (arg.isEmpty()) {
                         commandOutput.setText(bundle.getString("main.filter_starts.need_value"));
                         return;
@@ -200,7 +202,7 @@ public class MainWindowController {
                 commandOutput.setText(response.getMessage());
             }
         } else {
-            ExecutionResponse response = networkClient.sendCommand(command, argument, userId);
+            ExecutionResponse response = networkClient.sendCommand(command, (HumanBeing) argument, userId);
             commandOutput.setText(response.getMessage());
         }
     }
@@ -211,10 +213,15 @@ public class MainWindowController {
             loader.setResources(MainApp.getBundle());
             Parent root = loader.load();
             AddHumanController controller = loader.getController();
-            controller.init(networkClient, userId, MainApp.getLocale().getLanguage(), this::refreshData);
+            
+            if (humanBeing == null) {
+                controller.init(networkClient, userId, MainApp.getLocale().getLanguage(), this::refreshData);
+            } else {
+                controller.initForUpdate(networkClient, userId, humanBeing, MainApp.getLocale().getLanguage(), this::refreshData);
+            }
 
             Stage stage = new Stage();
-            stage.setTitle(bundle.getString("main.add.title"));
+            stage.setTitle(humanBeing == null ? bundle.getString("main.add.title") : bundle.getString("main.update.title"));
             stage.setScene(new Scene(root));
             stage.initOwner(executeButton.getScene().getWindow());
             stage.showAndWait();

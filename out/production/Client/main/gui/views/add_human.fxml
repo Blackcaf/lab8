@@ -10,7 +10,7 @@
             style="-fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #1a1633, #ff2c7a 80%, #f8e2ff 100%);">
 
     <VBox layoutX="20" layoutY="20" spacing="16" prefWidth="380">
-        <Label text="Creating HumanBeing" style="-fx-font-size: 20px; -fx-text-fill: #fff;"/>
+        <Label fx:id="titleLabel" text="Creating HumanBeing" style="-fx-font-size: 20px; -fx-text-fill: #fff;"/>
 
         <GridPane hgap="0" vgap="10">
             <columnConstraints>

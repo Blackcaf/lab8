@@ -29,6 +29,7 @@ public class CommandManager {
         commands.put("count_less", new CountLessThanImpactSpeed(console, collectionManager));
         commands.put("execute_script", new ExecuteScript(console, this));
         commands.put("removebyid", new RemoveById(console, collectionManager));
+        commands.put("get_by_id", new GetById(console, collectionManager));
     }
 
     public ExecutionResponse executeCommand(String commandName, HumanBeing humanBeing, Integer userId) {

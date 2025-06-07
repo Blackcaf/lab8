@@ -23,17 +23,43 @@ public class AddHumanController {
     @FXML private Button saveButton;
     @FXML private Button cancelButton;
     @FXML private Label errorLabel;
+    @FXML private Label titleLabel;
 
     private NetworkClient networkClient;
     private Integer userId;
     private String lang;
     private Runnable reloadCallback;
+    private boolean isUpdate = false;
+    private Long editingId = null;
 
     public void init(NetworkClient networkClient, Integer userId, String lang, Runnable reloadCallback) {
         this.networkClient = networkClient;
         this.userId = userId;
         this.lang = lang;
         this.reloadCallback = reloadCallback;
+        this.isUpdate = false;
+        titleLabel.setText("Creating HumanBeing");
+    }
+
+    public void initForUpdate(NetworkClient networkClient, Integer userId, HumanBeing human, String lang, Runnable reloadCallback) {
+        this.networkClient = networkClient;
+        this.userId = userId;
+        this.lang = lang;
+        this.reloadCallback = reloadCallback;
+        this.isUpdate = true;
+        this.editingId = human.getId();
+        titleLabel.setText("Updating HumanBeing");
+
+        // Заполняем поля данными из существующего объекта
+        nameField.setText(human.getName());
+        xField.setText(String.valueOf(human.getCoordinates().getX()));
+        yField.setText(String.valueOf(human.getCoordinates().getY()));
+        impactSpeedField.setText(String.valueOf(human.getImpactSpeed()));
+        realHeroCheckBox.setSelected(human.getRealHero());
+        hasToothpickBox.setValue(human.getHasToothpick() == null ? "null" : String.valueOf(human.getHasToothpick()));
+        weaponTypeBox.setValue(human.getWeaponType());
+        moodBox.setValue(human.getMood());
+        carNameField.setText(human.getCar().getName());
     }
 
     @FXML
@@ -65,8 +91,6 @@ public class AddHumanController {
         weaponTypeBox.valueProperty().addListener((obs, oldVal, newVal) -> markComboValid(weaponTypeBox, newVal != null));
         moodBox.valueProperty().addListener((obs, oldVal, newVal) -> markComboValid(moodBox, newVal != null));
 
-        // Checkbox doesn't need color
-
         // Save button only enabled when all fields valid
         saveButton.setDisable(true);
         Runnable validator = this::validateAll;
@@ -87,6 +111,7 @@ public class AddHumanController {
         f.getStyleClass().removeAll("valid", "invalid");
         f.getStyleClass().add(invalid ? "invalid" : "valid");
     }
+
     private void markComboValid(ComboBox<?> box, boolean valid) {
         box.getStyleClass().removeAll("valid", "invalid");
         if (valid) box.getStyleClass().add("valid");
@@ -96,9 +121,11 @@ public class AddHumanController {
     private boolean isValidDouble(String val) {
         try { Double.parseDouble(val); return true; } catch (Exception e) { return false; }
     }
+
     private boolean isValidFloat(String val) {
         try { Float.parseFloat(val); return true; } catch (Exception e) { return false; }
     }
+
     private boolean isValidLong(String val) {
         try { Long.parseLong(val); return true; } catch (Exception e) { return false; }
     }
@@ -106,13 +133,13 @@ public class AddHumanController {
     private void validateAll() {
         boolean valid =
                 !nameField.getText().trim().isEmpty() &&
-                        isValidDouble(xField.getText()) &&
-                        isValidFloat(yField.getText()) &&
-                        isValidLong(impactSpeedField.getText()) &&
-                        !carNameField.getText().trim().isEmpty() &&
-                        hasToothpickBox.getValue() != null &&
-                        weaponTypeBox.getValue() != null &&
-                        moodBox.getValue() != null;
+                isValidDouble(xField.getText()) &&
+                isValidFloat(yField.getText()) &&
+                isValidLong(impactSpeedField.getText()) &&
+                !carNameField.getText().trim().isEmpty() &&
+                hasToothpickBox.getValue() != null &&
+                weaponTypeBox.getValue() != null &&
+                moodBox.getValue() != null;
         saveButton.setDisable(!valid);
     }
 
@@ -140,10 +167,13 @@ public class AddHumanController {
         human.setMood(mood);
         human.setCar(new models.Car(carName));
 
-        ExecutionResponse response = networkClient.sendCommand("add", human, userId);
+        if (isUpdate) {
+            human.setId(editingId);
+        }
+
+        ExecutionResponse response = networkClient.sendCommand(isUpdate ? "update" : "add", human, userId);
         if (response.isSuccess()) {
-            Long id = response.getHumanBeing() != null ? response.getHumanBeing().getId() : null;
-            showSuccessDialog("Element successfully added with id: " + id);
+            showSuccessDialog(isUpdate ? "Element successfully updated" : "Element successfully added with id: " + response.getHumanBeing().getId());
             if (reloadCallback != null) reloadCallback.run();
         } else {
             errorLabel.setText(response.getMessage());

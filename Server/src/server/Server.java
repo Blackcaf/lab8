@@ -48,7 +48,8 @@ public class Server {
                     System.out.println("Получен запрос: command=" + commandName + ", userId=" + userId);
                     if (argument != null) {
                         if (argument instanceof HumanBeing) {
-                            System.out.println("Аргумент: " + ((HumanBeing) argument).getName());
+                            HumanBeing hb = (HumanBeing) argument;
+                            System.out.println("Аргумент (HumanBeing): id=" + hb.getId() + ", userId=" + hb.getUserId());
                         } else if (argument instanceof Long) {
                             System.out.println("Аргумент: id=" + argument);
                         } else {
@@ -61,7 +62,7 @@ public class Server {
                     HumanBeing humanBeing = null;
                     if (argument instanceof HumanBeing) {
                         humanBeing = (HumanBeing) argument;
-                    } else if (commandName.equals("removebyid") && argument instanceof Long) {
+                    } else if (argument instanceof Long) {
                         humanBeing = new HumanBeing();
                         humanBeing.setId((Long) argument);
                     }

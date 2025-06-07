@@ -10,14 +10,14 @@ public class CountLessThanImpactSpeed extends Command {
     private final CollectionManager collectionManager;
 
     public CountLessThanImpactSpeed(Console console, CollectionManager collectionManager) {
-        super("count_less_than_impact_speed", "вывести количество элементов, значение поля impactSpeed которых меньше заданного");
+        super("count_less", "вывести количество элементов, значение поля impactSpeed которых меньше заданного");
         this.console = console;
         this.collectionManager = collectionManager;
     }
 
     @Override
     public ExecutionResponse execute(HumanBeing argument, Integer userId) {
-        console.println("Выполняется команда: count_less_than_impact_speed, userId: " + userId);
+        console.println("Выполняется команда: count_less, userId: " + userId);
         if (argument == null || argument.getImpactSpeed() == null) {
             return new ExecutionResponse(false, "Ошибка: необходимо указать значение impactSpeed");
         }

@@ -10,14 +10,14 @@ public class FilterStartsWithName extends Command {
     private final CollectionManager collectionManager;
 
     public FilterStartsWithName(Console console, CollectionManager collectionManager) {
-        super("filter_starts_with_name", "вывести элементы, значение поля name которых начинается с заданной подстроки");
+        super("filter_starts", "вывести элементы, значение поля name которых начинается с заданной подстроки");
         this.console = console;
         this.collectionManager = collectionManager;
     }
 
     @Override
     public ExecutionResponse execute(HumanBeing argument, Integer userId) {
-        console.println("Выполняется команда: filter_starts_with_name, userId: " + userId);
+        console.println("Выполняется команда: filter_starts, userId: " + userId);
         if (userId == null) {
             return new ExecutionResponse(false, "Ошибка: необходимо авторизоваться (login) или зарегистрироваться (register)");
         }
