@@ -3,18 +3,15 @@ package main.gui.controllers;
 import javafx.beans.property.*;
 import javafx.collections.*;
 import javafx.collections.transformation.*;
+import javafx.css.PseudoClass;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.*;
 import javafx.util.converter.DoubleStringConverter;
 import javafx.util.converter.FloatStringConverter;
-import javafx.util.converter.IntegerStringConverter;
 import javafx.util.converter.LongStringConverter;
 import main.gui.NetworkClient;
 import models.HumanBeing;
-
-import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 public class ShowController {
     @FXML private TableView<HumanBeing> tableView;
@@ -22,7 +19,6 @@ public class ShowController {
     @FXML private TableColumn<HumanBeing, String> nameColumn;
     @FXML private TableColumn<HumanBeing, Double> coordinateXColumn;
     @FXML private TableColumn<HumanBeing, Float> coordinateYColumn;
-    @FXML private TableColumn<HumanBeing, String> creationDateColumn;
     @FXML private TableColumn<HumanBeing, Long> impactSpeedColumn;
     @FXML private TableColumn<HumanBeing, Boolean> realHeroColumn;
     @FXML private TableColumn<HumanBeing, Boolean> hasToothpickColumn;
@@ -31,97 +27,186 @@ public class ShowController {
     @FXML private TableColumn<HumanBeing, String> carNameColumn;
     @FXML private TableColumn<HumanBeing, Integer> userIdColumn;
     @FXML private TextField filterField;
+    @FXML private ComboBox<String> columnFilterBox;
 
-    private ObservableList<HumanBeing> masterData = FXCollections.observableArrayList();
+    private ObservableList<HumanBeing> masterData;
     private FilteredList<HumanBeing> filteredData;
     private int currentUserId;
-
-    // TODO: Установите этот сеттер из MainWindowController!
     private NetworkClient networkClient;
+
+    // PseudoClass для чужих строк
+    private static final PseudoClass FOREIGN_ROW = PseudoClass.getPseudoClass("foreign");
+
     public void setNetworkClient(NetworkClient networkClient) {
         this.networkClient = networkClient;
     }
 
     public void initialize() {
+        ObservableList<String> columns = FXCollections.observableArrayList(
+                "",
+                "id",
+                "name",
+                "coordinate_x",
+                "coordinate_y",
+                "impact_speed",
+                "real_hero",
+                "has_toothpick",
+                "weapon_type",
+                "mood",
+                "car_name",
+                "user_id"
+        );
+        columnFilterBox.setItems(columns);
+        columnFilterBox.getSelectionModel().selectFirst();
+
         tableView.setEditable(true);
 
         idColumn.setCellValueFactory(data -> new SimpleLongProperty(data.getValue().getId()).asObject());
         idColumn.setEditable(false);
 
         nameColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
-        nameColumn.setCellFactory(col -> editableStringCell(
-                (hb, value) -> hb.setName(value)
-        ));
+        nameColumn.setCellFactory(col -> editableStringCell((hb, value) -> hb.setName(value)));
 
         coordinateXColumn.setCellValueFactory(data -> new SimpleDoubleProperty(data.getValue().getCoordinates().getX()).asObject());
-        coordinateXColumn.setCellFactory(col -> editableDoubleCell(
-                (hb, value) -> hb.getCoordinates().setX(value)
-        ));
+        coordinateXColumn.setCellFactory(col -> editableDoubleCell((hb, value) -> hb.getCoordinates().setX(value)));
 
         coordinateYColumn.setCellValueFactory(data -> new SimpleFloatProperty(data.getValue().getCoordinates().getY()).asObject());
-        coordinateYColumn.setCellFactory(col -> editableFloatCell(
-                (hb, value) -> hb.getCoordinates().setY(value)
-        ));
-
-        creationDateColumn.setCellValueFactory(data -> new SimpleStringProperty(
-                data.getValue().getCreationDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-        creationDateColumn.setEditable(false);
+        coordinateYColumn.setCellFactory(col -> editableFloatCell((hb, value) -> hb.getCoordinates().setY(value)));
 
         impactSpeedColumn.setCellValueFactory(data -> new SimpleLongProperty(data.getValue().getImpactSpeed()).asObject());
-        impactSpeedColumn.setCellFactory(col -> editableLongCell(
-                (hb, value) -> hb.setImpactSpeed(value)
-        ));
+        impactSpeedColumn.setCellFactory(col -> editableLongCell((hb, value) -> hb.setImpactSpeed(value)));
 
         realHeroColumn.setCellValueFactory(data -> new SimpleBooleanProperty(data.getValue().getRealHero()).asObject());
-        realHeroColumn.setCellFactory(col -> editableBooleanCell(
-                (hb, value) -> hb.setRealHero(value)
-        ));
+        realHeroColumn.setCellFactory(col -> {
+            ComboBoxTableCell<HumanBeing, Boolean> cell = new ComboBoxTableCell<>(
+                    FXCollections.observableArrayList(Boolean.TRUE, Boolean.FALSE)) {
+                @Override
+                public void updateItem(Boolean item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty) {
+                        setText(null);
+                    } else if (item != null && item) {
+                        setText("✔");
+                    } else {
+                        setText("✘");
+                    }
+                }
+            };
+            cell.setComboBoxEditable(true);
+            return cell;
+        });
+        realHeroColumn.setOnEditCommit(event -> {
+            HumanBeing hb = event.getRowValue();
+            if (hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                hb.setRealHero(event.getNewValue());
+                saveHuman(hb);
+            }
+        });
+        realHeroColumn.setEditable(true);
 
-        hasToothpickColumn.setCellValueFactory(data -> new SimpleBooleanProperty(Boolean.TRUE.equals(data.getValue().getHasToothpick())).asObject());
-        hasToothpickColumn.setCellFactory(col -> editableBooleanCell(
-                (hb, value) -> hb.setHasToothpick(value)
-        ));
+        hasToothpickColumn.setCellValueFactory(data -> new SimpleObjectProperty<>(data.getValue().getHasToothpick()));
+        hasToothpickColumn.setCellFactory(col -> {
+            ComboBoxTableCell<HumanBeing, Boolean> cell = new ComboBoxTableCell<>(
+                    FXCollections.observableArrayList(Boolean.TRUE, Boolean.FALSE, null)) {
+                @Override
+                public void updateItem(Boolean item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty) {
+                        setText(null);
+                    } else if (item == null) {
+                        setText("—");
+                    } else if (item) {
+                        setText("✔");
+                    } else {
+                        setText("✘");
+                    }
+                }
+            };
+            cell.setComboBoxEditable(true);
+            return cell;
+        });
+        hasToothpickColumn.setOnEditCommit(event -> {
+            HumanBeing hb = event.getRowValue();
+            if (hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                hb.setHasToothpick(event.getNewValue());
+                saveHuman(hb);
+            }
+        });
+        hasToothpickColumn.setEditable(true);
 
         weaponTypeColumn.setCellValueFactory(data -> new SimpleStringProperty(
                 data.getValue().getWeaponType() != null ? data.getValue().getWeaponType().toString() : ""));
-        weaponTypeColumn.setCellFactory(col -> editableStringCell(
-                (hb, value) -> {
-                    try {
-                        // Предположим, что у вас enum WeaponType
-                        hb.setWeaponType(models.WeaponType.valueOf(value));
-                    } catch (Exception e) {}
-                }
-        ));
+        weaponTypeColumn.setCellFactory(col -> editableStringCell((hb, value) -> {
+            try { hb.setWeaponType(models.WeaponType.valueOf(value)); } catch (Exception e) {}
+        }));
 
         moodColumn.setCellValueFactory(data -> new SimpleStringProperty(
                 data.getValue().getMood() != null ? data.getValue().getMood().toString() : ""));
-        moodColumn.setCellFactory(col -> editableStringCell(
-                (hb, value) -> hb.setMood(value)
-        ));
+        moodColumn.setCellFactory(col -> editableStringCell((hb, value) -> hb.setMood(value)));
 
         carNameColumn.setCellValueFactory(data -> new SimpleStringProperty(
                 data.getValue().getCar() != null ? data.getValue().getCar().getName() : ""));
-        carNameColumn.setCellFactory(col -> editableStringCell(
-                (hb, value) -> {
-                    if (hb.getCar() != null) hb.getCar().setName(value);
-                }
-        ));
+        carNameColumn.setCellFactory(col -> editableStringCell((hb, value) -> {
+            if (hb.getCar() != null) hb.getCar().setName(value);
+        }));
 
         userIdColumn.setCellValueFactory(data -> new SimpleIntegerProperty(
                 data.getValue().getUserId() == null ? -1 : data.getValue().getUserId()).asObject());
         userIdColumn.setEditable(false);
 
-        // Фильтрация
-        filteredData = new FilteredList<>(masterData, p -> true);
-        filterField.textProperty().addListener((obs, oldVal, newVal) -> {
-            filteredData.setPredicate(hb -> {
-                if (newVal == null || newVal.isEmpty()) return true;
-                String lower = newVal.toLowerCase();
+        // filteredData/masterData инициализируются в setData!
+    }
+
+    public void setData(ObservableList<HumanBeing> data, int currentUserId) {
+        this.currentUserId = currentUserId;
+        this.masterData = data;
+        this.filteredData = new FilteredList<>(masterData, p -> true);
+
+        filterField.textProperty().addListener((obs, oldVal, newVal) -> applyFilter());
+        columnFilterBox.valueProperty().addListener((obs, oldVal, newVal) -> applyFilter());
+
+        SortedList<HumanBeing> sortedData = new SortedList<>(filteredData);
+        sortedData.comparatorProperty().bind(tableView.comparatorProperty());
+        tableView.setItems(sortedData);
+
+        // Псевдокласс для чужих строк
+        tableView.setRowFactory(tv -> new TableRow<HumanBeing>() {
+            @Override
+            public void updateItem(HumanBeing item, boolean empty) {
+                super.updateItem(item, empty);
+                boolean isForeign = !empty && item != null && !item.getUserId().equals(currentUserId);
+                pseudoClassStateChanged(FOREIGN_ROW, isForeign);
+            }
+        });
+    }
+
+    // Метод для обновления фильтра и таблицы (вызывается из MainWindowController, если masterData обновилась)
+    public void refresh() {
+        if (filteredData != null) {
+            filteredData.setPredicate(filteredData.getPredicate());
+        }
+        tableView.refresh();
+    }
+
+    private void applyFilter() {
+        String filterText = filterField.getText();
+        String selectedColumn = columnFilterBox.getValue();
+
+        if (filteredData == null) return;
+
+        if (filterText == null || filterText.isEmpty()) {
+            filteredData.setPredicate(hb -> true);
+            return;
+        }
+        String lower = filterText.toLowerCase();
+
+        filteredData.setPredicate(hb -> {
+            if (selectedColumn == null || selectedColumn.isEmpty()) {
                 return String.valueOf(hb.getId()).contains(lower)
-                        || hb.getName().toLowerCase().contains(lower)
+                        || (hb.getName() != null && hb.getName().toLowerCase().contains(lower))
                         || String.valueOf(hb.getCoordinates().getX()).contains(lower)
                         || String.valueOf(hb.getCoordinates().getY()).contains(lower)
-                        || hb.getCreationDate().toString().toLowerCase().contains(lower)
+                        || (hb.getCreationDate() != null && hb.getCreationDate().toString().toLowerCase().contains(lower))
                         || String.valueOf(hb.getImpactSpeed()).contains(lower)
                         || String.valueOf(hb.getRealHero()).toLowerCase().contains(lower)
                         || String.valueOf(hb.getHasToothpick()).toLowerCase().contains(lower)
@@ -129,30 +214,25 @@ public class ShowController {
                         || (hb.getMood() != null && hb.getMood().toLowerCase().contains(lower))
                         || (hb.getCar() != null && hb.getCar().getName() != null && hb.getCar().getName().toLowerCase().contains(lower))
                         || String.valueOf(hb.getUserId()).contains(lower);
-            });
-        });
-
-        SortedList<HumanBeing> sortedData = new SortedList<>(filteredData);
-        sortedData.comparatorProperty().bind(tableView.comparatorProperty());
-        tableView.setItems(sortedData);
-
-        // Подсветка чужих строк
-        tableView.setRowFactory(tv -> new TableRow<HumanBeing>() {
-            @Override
-            public void updateItem(HumanBeing item, boolean empty) {
-                super.updateItem(item, empty);
-                if (item == null || empty) {
-                    setStyle("");
-                } else if (!item.getUserId().equals(currentUserId)) {
-                    setStyle("-fx-background-color: #eee;");
-                } else {
-                    setStyle("");
+            } else {
+                switch (selectedColumn) {
+                    case "id": return String.valueOf(hb.getId()).contains(lower);
+                    case "name": return hb.getName() != null && hb.getName().toLowerCase().contains(lower);
+                    case "coordinate_x": return String.valueOf(hb.getCoordinates().getX()).contains(lower);
+                    case "coordinate_y": return String.valueOf(hb.getCoordinates().getY()).contains(lower);
+                    case "impact_speed": return String.valueOf(hb.getImpactSpeed()).contains(lower);
+                    case "real_hero": return String.valueOf(hb.getRealHero()).toLowerCase().contains(lower);
+                    case "has_toothpick": return String.valueOf(hb.getHasToothpick()).toLowerCase().contains(lower);
+                    case "weapon_type": return hb.getWeaponType() != null && hb.getWeaponType().toString().toLowerCase().contains(lower);
+                    case "mood": return hb.getMood() != null && hb.getMood().toLowerCase().contains(lower);
+                    case "car_name": return hb.getCar() != null && hb.getCar().getName() != null && hb.getCar().getName().toLowerCase().contains(lower);
+                    case "user_id": return String.valueOf(hb.getUserId()).contains(lower);
+                    default: return false;
                 }
             }
         });
     }
 
-    // Методы для редактируемых ячеек с проверкой на userId
     private TableCell<HumanBeing, String> editableStringCell(BiConsumer<HumanBeing, String> setter) {
         return new TextFieldTableCell<HumanBeing, String>() {
             @Override
@@ -254,17 +334,10 @@ public class ShowController {
         };
     }
 
-    // Сохраняет изменения на сервере
     private void saveHuman(HumanBeing hb) {
         if (networkClient != null) {
             networkClient.sendCommand("update", hb, currentUserId);
         }
-    }
-
-    // Для MainWindowController
-    public void setData(List<HumanBeing> humanList, int currentUserId) {
-        this.currentUserId = currentUserId;
-        masterData.setAll(humanList);
     }
 
     @FunctionalInterface

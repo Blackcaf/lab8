@@ -60,7 +60,6 @@ public class Show extends Command {
             response.append(bundle.getString("show.no_elements"));
         }
 
-        // Возвращаем полный список для клиента (таблица)
         return new ExecutionResponse(true, "Список успешно получен", allHumanBeingsList);
     }
 }

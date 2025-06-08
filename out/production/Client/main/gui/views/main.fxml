@@ -3,16 +3,11 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.layout.Priority?>
 
 <BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="main.gui.controllers.MainWindowController"
             stylesheets="@main.css"
             prefWidth="950" prefHeight="500">
-    <top>
-        <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-padding: 10;">
-            <Label text="%main.language" style="-fx-text-fill: #fff;"/>
-            <ComboBox fx:id="languageBox" prefWidth="180"/>
-        </HBox>
-    </top>
     <top>
         <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-background-color: #f8e2ff;">
             <Label fx:id="usernameLabel" text="Пользователь: " style="-fx-border-color: #ccc; -fx-padding: 6; -fx-font-weight: bold;"/>
@@ -37,7 +32,8 @@
         </VBox>
     </center>
     <bottom>
-        <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-padding: 10;">
+        <HBox spacing="20" alignment="CENTER_LEFT" style="-fx-padding: 10;">
+            <ComboBox fx:id="languageBox" prefWidth="180"/>
             <Button fx:id="registerButton" text="%main.register" minWidth="170"/>
             <Button fx:id="exitButton" text="%main.exit" minWidth="100"/>
         </HBox>

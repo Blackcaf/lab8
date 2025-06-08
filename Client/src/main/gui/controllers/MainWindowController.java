@@ -1,6 +1,7 @@
 package main.gui.controllers;
 
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -11,10 +12,6 @@ import main.gui.MainApp;
 import main.gui.NetworkClient;
 import models.HumanBeing;
 import utility.ExecutionResponse;
-import javafx.scene.media.Media;
-import javafx.scene.media.MediaPlayer;
-import javafx.scene.image.Image;
-import javafx.scene.control.Button;
 
 import java.io.IOException;
 import java.util.*;
@@ -31,13 +28,15 @@ public class MainWindowController {
     @FXML private Button exitButton;
     @FXML private Label usernameLabel;
 
-
     private String username;
     private NetworkClient networkClient;
     private Integer userId;
     private ResourceBundle bundle;
-
     private int lastLanguageIndex = -1;
+    private final ObservableList<HumanBeing> masterData = FXCollections.observableArrayList();
+
+    // Храним открытый ShowController для "живого" обновления (может быть список, если несколько окон)
+    private ShowController showController = null;
 
     private final List<String> commands = Arrays.asList(
             "add", "update", "remove_head", "clear", "info", "show",
@@ -46,12 +45,13 @@ public class MainWindowController {
     );
 
     @FXML
-    private void handleShow(List<HumanBeing> humans, int currentUserId) throws IOException {
+    private void handleShow() throws IOException {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/main/gui/views/show.fxml"));
         Parent root = loader.load();
         ShowController controller = loader.getController();
-        controller.setNetworkClient(networkClient); // <-- добавьте это!
-        controller.setData(humans, currentUserId);
+        controller.setNetworkClient(networkClient);
+        controller.setData(masterData, userId);
+        this.showController = controller; // сохраняем ссылку для последующих обновлений
         Stage stage = new Stage();
         stage.setScene(new Scene(root));
         stage.setTitle("HumanBeing Table");
@@ -207,6 +207,7 @@ public class MainWindowController {
             return;
         }
 
+        // КОМАНДЫ ВЫВОДЯЩИЕ СПИСОК
         if (command.equals("help") || command.equals("info") || command.equals("show") || command.equals("clear")) {
             String currentLang = MainApp.getLocale().getLanguage();
             HumanBeing langArg = new HumanBeing();
@@ -221,10 +222,17 @@ public class MainWindowController {
             } else if ("show".equals(command)) {
                 List<HumanBeing> humans = response.getHumanBeings();
                 if (humans != null) {
-                    try {
-                        handleShow(humans, userId);
-                    } catch (IOException e) {
-                        commandOutput.setText("Ошибка открытия окна: " + e.getMessage());
+                    // Главная строка: это обновляет masterData для всех ShowController!
+                    masterData.setAll(humans);
+                    // Если окно уже открыто, просто обновляем коллекцию, не открываем новое!
+                    if (showController != null) {
+                        showController.refresh(); // метод, который обновит фильтр и таблицу
+                    } else {
+                        try {
+                            handleShow();
+                        } catch (IOException e) {
+                            commandOutput.setText("Ошибка открытия окна: " + e.getMessage());
+                        }
                     }
                 } else {
                     commandOutput.setText("Нет данных для отображения");
@@ -235,6 +243,16 @@ public class MainWindowController {
         } else {
             ExecutionResponse response = networkClient.sendCommand(command, (HumanBeing) argument, userId);
             commandOutput.setText(response.getMessage());
+            // После любой команды, изменяющей коллекцию, обнови masterData через show!
+            if (Arrays.asList("add", "removebyid", "remove_head", "clear").contains(command)) {
+                // Сразу после изменения — подгрузи show и обнови коллекцию и все ShowController
+                ExecutionResponse showResponse = networkClient.sendCommand("show", null, userId);
+                List<HumanBeing> humans = showResponse.getHumanBeings();
+                if (humans != null) {
+                    masterData.setAll(humans);
+                    if (showController != null) showController.refresh();
+                }
+            }
         }
     }
 
@@ -244,7 +262,7 @@ public class MainWindowController {
             loader.setResources(MainApp.getBundle());
             Parent root = loader.load();
             AddHumanController controller = loader.getController();
-            
+
             if (humanBeing == null) {
                 controller.init(networkClient, userId, MainApp.getLocale().getLanguage(), this::refreshData);
             } else {
@@ -286,6 +304,11 @@ public class MainWindowController {
     }
 
     private void refreshData() {
-        // Место для обновления данных после добавления/редактирования HumanBeing
+        ExecutionResponse showResponse = networkClient.sendCommand("show", null, userId);
+        List<HumanBeing> humans = showResponse.getHumanBeings();
+        if (humans != null) {
+            masterData.setAll(humans);
+            if (showController != null) showController.refresh();
+        }
     }
 }

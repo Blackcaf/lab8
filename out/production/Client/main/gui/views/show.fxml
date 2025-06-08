@@ -3,11 +3,12 @@
 <?import javafx.scene.layout.*?>
 
 <BorderPane xmlns:fx="http://javafx.com/fxml"
-            fx:controller="main.gui.controllers.ShowController">
+            fx:controller="main.gui.controllers.ShowController"
+            stylesheets="@tableview-theme.css">
     <top>
-        <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-padding: 10;">
-            <Label text="Фильтр:"/>
-            <TextField fx:id="filterField" promptText="Введите текст для фильтрации..."/>
+        <HBox spacing="8">
+            <ComboBox fx:id="columnFilterBox" prefWidth="100"/>
+            <TextField fx:id="filterField" promptText="Введите фильтр"/>
         </HBox>
     </top>
     <center>
@@ -17,7 +18,6 @@
                 <TableColumn fx:id="nameColumn" text="name"/>
                 <TableColumn fx:id="coordinateXColumn" text="coordinate_x"/>
                 <TableColumn fx:id="coordinateYColumn" text="coordinate_y"/>
-                <TableColumn fx:id="creationDateColumn" text="creation_date"/>
                 <TableColumn fx:id="impactSpeedColumn" text="impact_speed"/>
                 <TableColumn fx:id="realHeroColumn" text="real_hero"/>
                 <TableColumn fx:id="hasToothpickColumn" text="has_toothpick"/>
@@ -25,7 +25,6 @@
                 <TableColumn fx:id="moodColumn" text="mood"/>
                 <TableColumn fx:id="carNameColumn" text="car_name"/>
                 <TableColumn fx:id="userIdColumn" text="user_id"/>
-                <TableColumn fx:id="editColumn" text=""/>
             </columns>
         </TableView>
     </center>

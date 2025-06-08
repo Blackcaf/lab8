@@ -1,0 +1,121 @@
+/* Основной фон */
+.root, .border-pane, .borderpane, .border-pane *, .table-view {
+    -fx-background-color: linear-gradient(to bottom, #181b2c 0%, #222445 100%);
+}
+
+/* Заголовки таблицы — неон */
+.table-view .column-header-background {
+    -fx-background-color: linear-gradient(to top, #c30088 0%, #ff69b4 100%);
+}
+.table-view .column-header .label {
+    -fx-text-fill: #ffeefc;
+    -fx-font-family: "Montserrat", "Segoe UI", "Arial", sans-serif;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow( gaussian , #ff69b4 , 4,0,0,2 );
+    -fx-padding: 0 8 0 8;
+}
+
+/* Строки пользователя (обычные) */
+.table-row-cell:even {
+    -fx-background-color: #242348;
+}
+.table-row-cell:odd {
+    -fx-background-color: #1e1d38;
+}
+
+/* Строки чужого пользователя — голубовато-фиолетовый, читаемый */
+.table-row-cell:foreign {
+    -fx-background-color: #aab6ff;
+    -fx-opacity: 0.65;
+}
+
+/* Выбранная строка */
+.table-row-cell:selected {
+    -fx-background-color: linear-gradient(to right, #ff69b4 0%, #c30088 90%);
+    -fx-text-fill: #fff;
+}
+
+.table-cell {
+    -fx-text-fill: #fff;
+    -fx-font-size: 14px;
+    -fx-font-family: "Montserrat", "Segoe UI", "Arial", sans-serif;
+    -fx-padding: 4 8 4 8;
+    -fx-alignment: CENTER_LEFT;
+    -fx-effect: dropshadow( gaussian , #ff69b4 , 4,0,0,2 ); /* неоновый розовый свет */
+}
+
+.table-row-cell:hover {
+    -fx-background-color: #6d3f7f;
+}
+
+.table-view, .table-row-cell, .table-cell {
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-effect: dropshadow(three-pass-box, #ff69b4, 5, 0.1, 0, 0);
+}
+
+.table-view, .table-view .filler, .table-view .corner {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.scroll-bar:vertical .thumb,
+.scroll-bar:horizontal .thumb {
+    -fx-background-color: #ff69b4;
+    -fx-background-radius: 8;
+}
+.scroll-bar:vertical, .scroll-bar:horizontal {
+    -fx-background-color: #181b2c;
+}
+
+.table-row-cell:selected .table-cell {
+    -fx-border-color: #fff6fb;
+    -fx-border-width: 0 0 2 0;
+}
+
+/* Стилизация ComboBox */
+.combo-box, .combo-box-base {
+    -fx-background-color: #181b2c, #c30088;
+    -fx-text-fill: #f8e1f5;
+    -fx-border-color: #ff69b4;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-font-family: "Montserrat", "Segoe UI", "Arial", sans-serif;
+    -fx-font-size: 14px;
+}
+.combo-box .text-field {
+    -fx-background-color: transparent;
+    -fx-text-fill: #ff69b4;
+    -fx-prompt-text-fill: #ff69b4;
+}
+
+/* Стилизация выпадающего списка ComboBox */
+.combo-box-popup .list-view {
+    -fx-background-color: #1e1d38, #c30088;
+    -fx-control-inner-background: #1e1d38;
+    -fx-border-color: #ff69b4;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+.combo-box-popup .list-cell {
+    -fx-text-fill: #ffe9f7;
+    -fx-background-color: transparent;
+    -fx-font-family: "Montserrat", "Segoe UI", "Arial", sans-serif;
+}
+.combo-box-popup .list-cell:hover, .combo-box-popup .list-cell:selected {
+    -fx-background-color: #ff69b4;
+    -fx-text-fill: #181b2c;
+}
+
+/* Фильтр (TextField) */
+.text-field {
+    -fx-background-color: #23272e, #c30088;
+    -fx-text-fill: #ffe9f7;
+    -fx-prompt-text-fill: #ff69b4;
+    -fx-border-color: #ff69b4;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-font-family: "Montserrat", "Segoe UI", "Arial", sans-serif;
+    -fx-font-size: 14px;
+}
