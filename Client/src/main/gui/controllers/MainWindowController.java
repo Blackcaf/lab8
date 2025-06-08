@@ -46,7 +46,6 @@ public class MainWindowController {
     private int lastLanguageIndex = -1;
     private final ObservableList<HumanBeing> masterData = FXCollections.observableArrayList();
 
-    // Храним открытый ShowController для "живого" обновления (может быть список, если несколько окон)
     private ShowController showController = null;
 
     private final List<String> commands = Arrays.asList(
@@ -62,25 +61,22 @@ public class MainWindowController {
         ShowController controller = loader.getController();
         controller.setNetworkClient(networkClient);
         controller.setData(masterData, userId);
-        this.showController = controller; // сохраняем ссылку для последующих обновлений
+        this.showController = controller;
         Stage stage = new Stage();
         stage.setScene(new Scene(root));
         stage.setTitle("HumanBeing Table");
         stage.show();
 
-        // --- ДОБАВЛЯЕМ: закрытие всех окон при закрытии главного окна ---
         Stage mainStage = (Stage) executeButton.getScene().getWindow();
         mainStage.setOnCloseRequest(event -> {
-            // Закрыть все открытые окна
             for (Window window : Window.getWindows()) {
                 if (window instanceof Stage) {
                     ((Stage) window).close();
                 }
             }
-            // И завершить приложение
             Platform.exit();
         });
-        // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+
     }
 
     public void initSession(NetworkClient networkClient, Integer userId, String username) {
@@ -235,7 +231,6 @@ public class MainWindowController {
             return;
         }
 
-        // КОМАНДЫ ВЫВОДЯЩИЕ СПИСОК
         if (command.equals("help") || command.equals("info") || command.equals("show") || command.equals("clear")) {
             String currentLang = MainApp.getLocale().getLanguage();
             HumanBeing langArg = new HumanBeing();
@@ -250,11 +245,9 @@ public class MainWindowController {
             } else if ("show".equals(command)) {
                 List<HumanBeing> humans = response.getHumanBeings();
                 if (humans != null) {
-                    // Главная строка: это обновляет masterData для всех ShowController!
                     masterData.setAll(humans);
-                    // Если окно уже открыто, просто обновляем коллекцию, не открываем новое!
                     if (showController != null) {
-                        showController.refresh(); // метод, который обновит фильтр и таблицу
+                        showController.refresh();
                     } else {
                         try {
                             handleShow();
@@ -271,9 +264,7 @@ public class MainWindowController {
         } else {
             ExecutionResponse response = networkClient.sendCommand(command, (HumanBeing) argument, userId);
             commandOutput.setText(response.getMessage());
-            // После любой команды, изменяющей коллекцию, обнови masterData через show!
             if (Arrays.asList("add", "removebyid", "remove_head", "clear").contains(command)) {
-                // Сразу после изменения — подгрузи show и обнови коллекцию и все ShowController
                 ExecutionResponse showResponse = networkClient.sendCommand("show", null, userId);
                 List<HumanBeing> humans = showResponse.getHumanBeings();
                 if (humans != null) {

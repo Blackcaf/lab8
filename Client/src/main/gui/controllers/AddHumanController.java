@@ -50,7 +50,6 @@ public class AddHumanController {
         this.editingId = human.getId();
         titleLabel.setText("Updating HumanBeing");
 
-        // Заполняем поля данными из существующего объекта
         nameField.setText(human.getName());
         xField.setText(String.valueOf(human.getCoordinates().getX()));
         yField.setText(String.valueOf(human.getCoordinates().getY()));
@@ -64,7 +63,6 @@ public class AddHumanController {
 
     @FXML
     private void initialize() {
-        // Init enums and nullables
         hasToothpickBox.setItems(FXCollections.observableArrayList("true", "false", "null"));
         weaponTypeBox.setItems(FXCollections.observableArrayList(WeaponType.values()));
         moodBox.setItems(FXCollections.observableArrayList("SADNESS", "LONGING", "GLOOM", "CALM"));
@@ -72,26 +70,22 @@ public class AddHumanController {
         weaponTypeBox.getSelectionModel().clearSelection();
         moodBox.getSelectionModel().clearSelection();
 
-        // No red for ComboBoxes at start, only for text fields
         markInvalid(nameField, true);
         markInvalid(xField, true);
         markInvalid(yField, true);
         markInvalid(impactSpeedField, true);
         markInvalid(carNameField, true);
 
-        // Listeners for validation with color change
         nameField.textProperty().addListener((obs, oldVal, newVal) -> markInvalid(nameField, newVal.trim().isEmpty()));
         xField.textProperty().addListener((obs, oldVal, newVal) -> markInvalid(xField, !isValidDouble(newVal)));
         yField.textProperty().addListener((obs, oldVal, newVal) -> markInvalid(yField, !isValidFloat(newVal)));
         impactSpeedField.textProperty().addListener((obs, oldVal, newVal) -> markInvalid(impactSpeedField, !isValidLong(newVal)));
         carNameField.textProperty().addListener((obs, oldVal, newVal) -> markInvalid(carNameField, newVal.trim().isEmpty()));
 
-        // ComboBoxes: highlight green if valid, but never red
         hasToothpickBox.valueProperty().addListener((obs, oldVal, newVal) -> markComboValid(hasToothpickBox, newVal != null));
         weaponTypeBox.valueProperty().addListener((obs, oldVal, newVal) -> markComboValid(weaponTypeBox, newVal != null));
         moodBox.valueProperty().addListener((obs, oldVal, newVal) -> markComboValid(moodBox, newVal != null));
 
-        // Save button only enabled when all fields valid
         saveButton.setDisable(true);
         Runnable validator = this::validateAll;
         nameField.textProperty().addListener((obs, o, n) -> validator.run());

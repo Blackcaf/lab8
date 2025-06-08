@@ -160,7 +160,7 @@ public class ShowController {
                 data.getValue().getUserId() == null ? -1 : data.getValue().getUserId()).asObject());
         userIdColumn.setEditable(false);
 
-        // filteredData/masterData инициализируются в setData!
+
     }
 
     public void setData(ObservableList<HumanBeing> data, int currentUserId) {
@@ -186,7 +186,7 @@ public class ShowController {
         });
     }
 
-    // Метод для обновления фильтра и таблицы (вызывается из MainWindowController, если masterData обновилась)
+
     public void refresh() {
         if (filteredData != null) {
             filteredData.setPredicate(filteredData.getPredicate());
