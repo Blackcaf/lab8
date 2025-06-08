@@ -74,20 +74,21 @@
     -fx-border-width: 0 0 2 0;
 }
 
-/* Стилизация ComboBox */
 .combo-box, .combo-box-base {
     -fx-background-color: #181b2c, #c30088;
-    -fx-text-fill: #f8e1f5;
+    -fx-text-fill: #fff; /* Белый текст! */
     -fx-border-color: #ff69b4;
     -fx-border-radius: 7;
     -fx-background-radius: 7;
     -fx-font-family: "Montserrat", "Segoe UI", "Arial", sans-serif;
     -fx-font-size: 14px;
+    -fx-pref-width: 200px;
 }
+.combo-box .text,
+.combo-box .label,
 .combo-box .text-field {
-    -fx-background-color: transparent;
-    -fx-text-fill: #ff69b4;
-    -fx-prompt-text-fill: #ff69b4;
+    -fx-fill: #fff !important;  /* Для .text и .label */
+    -fx-text-fill: #fff !important; /* Для .text-field */
 }
 
 /* Стилизация выпадающего списка ComboBox */

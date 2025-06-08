@@ -1,5 +1,6 @@
 package main.gui.controllers;
 
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -8,10 +9,18 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import main.gui.MainApp;
 import main.gui.NetworkClient;
 import models.HumanBeing;
 import utility.ExecutionResponse;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+import java.util.ResourceBundle;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.util.Duration;
 
 import java.io.IOException;
 import java.util.*;
@@ -27,7 +36,9 @@ public class MainWindowController {
     @FXML private Button registerButton;
     @FXML private Button exitButton;
     @FXML private Label usernameLabel;
-
+    @FXML private Label timeLabel;
+    private Timeline clockTimeline;
+    private DateTimeFormatter timeFormatter;
     private String username;
     private NetworkClient networkClient;
     private Integer userId;
@@ -56,6 +67,20 @@ public class MainWindowController {
         stage.setScene(new Scene(root));
         stage.setTitle("HumanBeing Table");
         stage.show();
+
+        // --- ДОБАВЛЯЕМ: закрытие всех окон при закрытии главного окна ---
+        Stage mainStage = (Stage) executeButton.getScene().getWindow();
+        mainStage.setOnCloseRequest(event -> {
+            // Закрыть все открытые окна
+            for (Window window : Window.getWindows()) {
+                if (window instanceof Stage) {
+                    ((Stage) window).close();
+                }
+            }
+            // И завершить приложение
+            Platform.exit();
+        });
+        // --- КОНЕЦ ДОБАВЛЕНИЯ ---
     }
 
     public void initSession(NetworkClient networkClient, Integer userId, String username) {
@@ -63,6 +88,7 @@ public class MainWindowController {
         this.userId = userId;
         this.username = username;
         usernameLabel.setText("Пользователь: " + username);
+        startClock();
         List<String> visibleCommands = new ArrayList<>(commands);
         commandListView.setItems(FXCollections.observableArrayList(visibleCommands));
     }
@@ -98,6 +124,8 @@ public class MainWindowController {
             java.util.ResourceBundle.clearCache();
             bundle = MainApp.getBundle();
             updateTexts();
+            updateTimeFormatter();
+            updateClock();
         });
 
         commandListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
@@ -299,8 +327,7 @@ public class MainWindowController {
             networkClient.sendCommand("exit", null, userId);
             networkClient.close();
         } catch (Exception ignored) {}
-        Stage stage = (Stage) exitButton.getScene().getWindow();
-        stage.close();
+        Platform.exit();
     }
 
     private void refreshData() {
@@ -310,5 +337,44 @@ public class MainWindowController {
             masterData.setAll(humans);
             if (showController != null) showController.refresh();
         }
+    }
+
+    private void startClock() {
+        updateTimeFormatter();
+        if (clockTimeline != null) {
+            clockTimeline.stop();
+        }
+        clockTimeline = new Timeline(
+                new KeyFrame(Duration.ZERO, e -> updateClock()),
+                new KeyFrame(Duration.seconds(1))
+        );
+        clockTimeline.setCycleCount(Timeline.INDEFINITE);
+        clockTimeline.play();
+    }
+
+    private void updateClock() {
+        LocalDateTime now = LocalDateTime.now();
+        timeLabel.setText(now.format(timeFormatter));
+    }
+
+    private void updateTimeFormatter() {
+        Locale locale = MainApp.getLocale();
+        // Выбор паттерна и локали для разных языков
+        String pattern;
+        switch (locale.getLanguage()) {
+            case "ru":
+                pattern = "dd.MM.yyyy HH:mm:ss";
+                break;
+            case "mk":
+            case "lv":
+                pattern = "yyyy.MM.dd HH:mm:ss";
+                break;
+            case "es":
+                pattern = "dd/MM/yyyy HH:mm:ss";
+                break;
+            default:
+                pattern = "yyyy-MM-dd HH:mm:ss";
+        }
+        timeFormatter = DateTimeFormatter.ofPattern(pattern, locale);
     }
 }
