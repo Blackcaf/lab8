@@ -17071,3 +17071,3513 @@ package utility;
 public interface Validatable {
     boolean validate();
 }
+package main.gui;
+
+import javafx.application.Application;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import main.gui.controllers.MainWindowController;
+
+import java.util.Locale;
+import java.util.ResourceBundle;
+
+public class MainApp extends Application {
+    private static Locale currentLocale = new Locale("ru");
+    private static ResourceBundle bundle = ResourceBundle.getBundle("main.gui.locale.messages", currentLocale);
+
+    public static Locale getLocale() {
+        return currentLocale;
+    }
+
+    public static void setLocale(Locale locale) {
+        currentLocale = locale;
+        bundle = ResourceBundle.getBundle("main.gui.locale.messages", currentLocale);
+    }
+
+    public static ResourceBundle getBundle() {
+        return bundle;
+    }
+
+    @Override
+    public void start(Stage primaryStage) throws Exception {
+        showAuthWindow();
+    }
+
+    public static void showAuthWindow() throws Exception {
+        FXMLLoader loader = new FXMLLoader(MainApp.class.getResource("/main/gui/views/auth.fxml"), getBundle());
+        Stage stage = new Stage();
+        stage.setTitle(bundle.getString("auth.title"));
+        stage.setScene(new Scene(loader.load()));
+        stage.show();
+    }
+
+    public static void showMainWindow(NetworkClient client, Integer userId, String username) throws Exception {
+        FXMLLoader loader = new FXMLLoader(MainApp.class.getResource("/main/gui/views/main.fxml"), getBundle());
+        Stage stage = new Stage();
+        stage.setTitle(bundle.getString("main.title"));
+        stage.setScene(new Scene(loader.load()));
+        MainWindowController controller = loader.getController();
+        controller.initSession(client, userId, username);
+        stage.show();
+    }
+}
+package main.gui;
+
+import models.HumanBeing;
+import utility.ExecutionResponse;
+
+import java.io.*;
+import java.net.Socket;
+
+public class NetworkClient implements Closeable {
+    private Socket socket;
+    private ObjectOutputStream output;
+    private ObjectInputStream input;
+
+    public boolean connect(String host, int port) {
+        try {
+            socket = new Socket(host, port);
+            output = new ObjectOutputStream(socket.getOutputStream());
+            input = new ObjectInputStream(socket.getInputStream());
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    public ExecutionResponse sendCommand(String command, HumanBeing argument, Integer userId) {
+        try {
+            output.writeObject(command);
+            output.writeObject(argument);
+            output.writeObject(userId);
+            output.flush();
+            return (ExecutionResponse) input.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+            return new ExecutionResponse(false, "Ошибка при отправке команды: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (output != null) output.close();
+        if (input != null) input.close();
+        if (socket != null) socket.close();
+    }
+}
+package main.gui.controllers;
+
+import javafx.fxml.FXML;
+import javafx.scene.control.*;
+import javafx.scene.layout.Region;
+import main.gui.NetworkClient;
+import models.HumanBeing;
+import models.WeaponType;
+import utility.ExecutionResponse;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+
+public class AddHumanController {
+    @FXML private TextField nameField;
+    @FXML private TextField xField;
+    @FXML private TextField yField;
+    @FXML private TextField impactSpeedField;
+    @FXML private CheckBox realHeroCheckBox;
+    @FXML private ComboBox<String> hasToothpickBox;
+    @FXML private ComboBox<WeaponType> weaponTypeBox;
+    @FXML private ComboBox<String> moodBox;
+    @FXML private TextField carNameField;
+    @FXML private Button saveButton;
+    @FXML private Button cancelButton;
+    @FXML private Label errorLabel;
+    @FXML private Label titleLabel;
+
+    private NetworkClient networkClient;
+    private Integer userId;
+    private String lang;
+    private Runnable reloadCallback;
+    private boolean isUpdate = false;
+    private Long editingId = null;
+
+    public void init(NetworkClient networkClient, Integer userId, String lang, Runnable reloadCallback) {
+        this.networkClient = networkClient;
+        this.userId = userId;
+        this.lang = lang;
+        this.reloadCallback = reloadCallback;
+        this.isUpdate = false;
+        titleLabel.setText("Creating HumanBeing");
+    }
+
+    public void initForUpdate(NetworkClient networkClient, Integer userId, HumanBeing human, String lang, Runnable reloadCallback) {
+        this.networkClient = networkClient;
+        this.userId = userId;
+        this.lang = lang;
+        this.reloadCallback = reloadCallback;
+        this.isUpdate = true;
+        this.editingId = human.getId();
+        titleLabel.setText("Updating HumanBeing");
+
+        // Заполняем поля данными из существующего объекта
+        nameField.setText(human.getName());
+        xField.setText(String.valueOf(human.getCoordinates().getX()));
+        yField.setText(String.valueOf(human.getCoordinates().getY()));
+        impactSpeedField.setText(String.valueOf(human.getImpactSpeed()));
+        realHeroCheckBox.setSelected(human.getRealHero());
+        hasToothpickBox.setValue(human.getHasToothpick() == null ? "null" : String.valueOf(human.getHasToothpick()));
+        weaponTypeBox.setValue(human.getWeaponType());
+        moodBox.setValue(human.getMood());
+        carNameField.setText(human.getCar().getName());
+    }
+
+    @FXML
+    private void initialize() {
+        // Init enums and nullables
+        hasToothpickBox.setItems(FXCollections.observableArrayList("true", "false", "null"));
+        weaponTypeBox.setItems(FXCollections.observableArrayList(WeaponType.values()));
+        moodBox.setItems(FXCollections.observableArrayList("SADNESS", "LONGING", "GLOOM", "CALM"));
+        hasToothpickBox.getSelectionModel().clearSelection();
+        weaponTypeBox.getSelectionModel().clearSelection();
+        moodBox.getSelectionModel().clearSelection();
+
+        // No red for ComboBoxes at start, only for text fields
+        markInvalid(nameField, true);
+        markInvalid(xField, true);
+        markInvalid(yField, true);
+        markInvalid(impactSpeedField, true);
+        markInvalid(carNameField, true);
+
+        // Listeners for validation with color change
+        nameField.textProperty().addListener((obs, oldVal, newVal) -> markInvalid(nameField, newVal.trim().isEmpty()));
+        xField.textProperty().addListener((obs, oldVal, newVal) -> markInvalid(xField, !isValidDouble(newVal)));
+        yField.textProperty().addListener((obs, oldVal, newVal) -> markInvalid(yField, !isValidFloat(newVal)));
+        impactSpeedField.textProperty().addListener((obs, oldVal, newVal) -> markInvalid(impactSpeedField, !isValidLong(newVal)));
+        carNameField.textProperty().addListener((obs, oldVal, newVal) -> markInvalid(carNameField, newVal.trim().isEmpty()));
+
+        // ComboBoxes: highlight green if valid, but never red
+        hasToothpickBox.valueProperty().addListener((obs, oldVal, newVal) -> markComboValid(hasToothpickBox, newVal != null));
+        weaponTypeBox.valueProperty().addListener((obs, oldVal, newVal) -> markComboValid(weaponTypeBox, newVal != null));
+        moodBox.valueProperty().addListener((obs, oldVal, newVal) -> markComboValid(moodBox, newVal != null));
+
+        // Save button only enabled when all fields valid
+        saveButton.setDisable(true);
+        Runnable validator = this::validateAll;
+        nameField.textProperty().addListener((obs, o, n) -> validator.run());
+        xField.textProperty().addListener((obs, o, n) -> validator.run());
+        yField.textProperty().addListener((obs, o, n) -> validator.run());
+        impactSpeedField.textProperty().addListener((obs, o, n) -> validator.run());
+        carNameField.textProperty().addListener((obs, o, n) -> validator.run());
+        hasToothpickBox.valueProperty().addListener((obs, o, n) -> validator.run());
+        weaponTypeBox.valueProperty().addListener((obs, o, n) -> validator.run());
+        moodBox.valueProperty().addListener((obs, o, n) -> validator.run());
+
+        saveButton.setOnAction(event -> handleSave());
+        cancelButton.setOnAction(event -> cancelButton.getScene().getWindow().hide());
+    }
+
+    private void markInvalid(TextField f, boolean invalid) {
+        f.getStyleClass().removeAll("valid", "invalid");
+        f.getStyleClass().add(invalid ? "invalid" : "valid");
+    }
+
+    private void markComboValid(ComboBox<?> box, boolean valid) {
+        box.getStyleClass().removeAll("valid", "invalid");
+        if (valid) box.getStyleClass().add("valid");
+        else box.getStyleClass().remove("valid"); // no red
+    }
+
+    private boolean isValidDouble(String val) {
+        try { Double.parseDouble(val); return true; } catch (Exception e) { return false; }
+    }
+
+    private boolean isValidFloat(String val) {
+        try { Float.parseFloat(val); return true; } catch (Exception e) { return false; }
+    }
+
+    private boolean isValidLong(String val) {
+        try { Long.parseLong(val); return true; } catch (Exception e) { return false; }
+    }
+
+    private void validateAll() {
+        boolean valid =
+                !nameField.getText().trim().isEmpty() &&
+                isValidDouble(xField.getText()) &&
+                isValidFloat(yField.getText()) &&
+                isValidLong(impactSpeedField.getText()) &&
+                !carNameField.getText().trim().isEmpty() &&
+                hasToothpickBox.getValue() != null &&
+                weaponTypeBox.getValue() != null &&
+                moodBox.getValue() != null;
+        saveButton.setDisable(!valid);
+    }
+
+    private void handleSave() {
+        if (saveButton.isDisabled()) return;
+
+        String name = nameField.getText().trim();
+        double x = Double.parseDouble(xField.getText().trim());
+        float y = Float.parseFloat(yField.getText().trim());
+        boolean realHero = realHeroCheckBox.isSelected();
+        String hasToothpickVal = hasToothpickBox.getValue();
+        Boolean hasToothpick = hasToothpickVal.equals("null") ? null : Boolean.parseBoolean(hasToothpickVal);
+        long impactSpeed = Long.parseLong(impactSpeedField.getText().trim());
+        WeaponType weaponType = weaponTypeBox.getValue();
+        String mood = moodBox.getValue();
+        String carName = carNameField.getText().trim();
+
+        HumanBeing human = new HumanBeing();
+        human.setName(name);
+        human.setCoordinates(new models.Coordinates(x, y));
+        human.setImpactSpeed(impactSpeed);
+        human.setRealHero(realHero);
+        human.setHasToothpick(hasToothpick);
+        human.setWeaponType(weaponType);
+        human.setMood(mood);
+        human.setCar(new models.Car(carName));
+
+        if (isUpdate) {
+            human.setId(editingId);
+        }
+
+        ExecutionResponse response = networkClient.sendCommand(isUpdate ? "update" : "add", human, userId);
+        if (response.isSuccess()) {
+            showSuccessDialog(isUpdate ? "Element successfully updated" : "Element successfully added with id: " + response.getHumanBeing().getId());
+            if (reloadCallback != null) reloadCallback.run();
+        } else {
+            errorLabel.setText(response.getMessage());
+        }
+    }
+
+    private void showSuccessDialog(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Success");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.getDialogPane().setMinHeight(Region.USE_PREF_SIZE);
+        alert.showAndWait();
+        saveButton.getScene().getWindow().hide();
+    }
+}
+package main.gui.controllers;
+
+import javafx.fxml.FXML;
+import javafx.scene.control.*;
+import javafx.stage.Stage;
+import main.gui.MainApp;
+import main.gui.NetworkClient;
+import models.Car;
+import models.HumanBeing;
+import utility.ExecutionResponse;
+import javafx.scene.control.Button;
+
+import java.io.IOException;
+import java.util.Locale;
+import java.util.ResourceBundle;
+
+public class AuthController {
+    @FXML private TextField usernameField;
+    @FXML private PasswordField passwordField;
+    @FXML private Button loginButton;
+    @FXML private Button registerButton;
+    @FXML private ComboBox<String> languageBox;
+    @FXML private Label messageLabel;
+    @FXML private Label welcomeLabel;
+    @FXML private Label enterDetailsLabel;
+    @FXML private Label usernameLabel;
+    @FXML private Label passwordLabel;
+
+
+    private NetworkClient networkClient;
+    private Integer userId;
+    private int lastLanguageIndex = -1;
+
+    private ResourceBundle bundle;
+
+    @FXML
+    private void initialize() {
+        languageBox.getItems().setAll("Русский", "Македонский", "Latviešu", "Español (Colombia)");
+        Locale current = MainApp.getLocale();
+        int idx = 0;
+        if (current.getLanguage().equals("ru")) idx = 0;
+        else if (current.getLanguage().equals("mk")) idx = 1;
+        else if (current.getLanguage().equals("lv")) idx = 2;
+        else if (current.getLanguage().equals("es")) idx = 3;
+        languageBox.getSelectionModel().select(idx);
+        lastLanguageIndex = idx;
+
+        bundle = MainApp.getBundle();
+        updateTexts();
+
+        languageBox.getSelectionModel().selectedIndexProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            if (newVal.intValue() == lastLanguageIndex) return;
+            lastLanguageIndex = newVal.intValue();
+            Locale locale;
+            switch (newVal.intValue()) {
+                case 0: locale = new Locale("ru", "RU"); break;
+                case 1: locale = new Locale("mk", "MK"); break;
+                case 2: locale = new Locale("lv", "LV"); break;
+                case 3: locale = new Locale("es", "CO"); break;
+                default: locale = Locale.getDefault();
+            }
+            MainApp.setLocale(locale);
+            java.util.ResourceBundle.clearCache();
+            bundle = MainApp.getBundle();
+            updateTexts();
+        });
+    }
+
+    private void updateTexts() {
+        loginButton.setText(bundle.getString("auth.login"));
+        registerButton.setText(bundle.getString("auth.register"));
+        usernameLabel.setText(bundle.getString("auth.username"));
+        passwordLabel.setText(bundle.getString("auth.password"));
+        usernameField.setPromptText(bundle.getString("auth.username"));
+        passwordField.setPromptText(bundle.getString("auth.password"));
+        welcomeLabel.setText(bundle.getString("auth.welcome"));
+        enterDetailsLabel.setText(bundle.getString("auth.enter_details"));
+    }
+
+    @FXML
+    private void handleLogin(javafx.event.ActionEvent event) {
+        String username = usernameField.getText();
+        String password = passwordField.getText();
+        if (username.isEmpty() || password.isEmpty()) {
+            messageLabel.setText(bundle.getString("auth.login.empty"));
+            return;
+        }
+
+        if (networkClient != null) {
+            try { networkClient.close(); } catch (IOException ignored) {}
+        }
+        networkClient = new NetworkClient();
+        if (!networkClient.connect("localhost", 5000)) {
+            messageLabel.setText(bundle.getString("auth.connection.error"));
+            return;
+        }
+        HumanBeing user = new HumanBeing();
+        user.setName(username);
+        user.setCar(new Car(password));
+        ExecutionResponse response = networkClient.sendCommand("login", user, null);
+        if (response.isSuccess()) {
+            try {
+                userId = Integer.parseInt(response.getMessage());
+                messageLabel.setText(bundle.getString("auth.login.success"));
+                try {
+                    MainApp.showMainWindow(networkClient, userId, username);
+                    Stage stage = (Stage) loginButton.getScene().getWindow();
+                    stage.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    messageLabel.setText(bundle.getString("auth.main.open.error") + ": " + e.getMessage());
+                }
+            } catch (NumberFormatException e) {
+                messageLabel.setText(bundle.getString("auth.userid.error"));
+                try { networkClient.close(); } catch (IOException ignored) {}
+            }
+        } else {
+            messageLabel.setText(bundle.getString("auth.login.fail") + " " + response.getMessage());
+            try { networkClient.close(); } catch (IOException ignored) {}
+        }
+    }
+
+    @FXML
+    private void handleRegister(javafx.event.ActionEvent event) {
+        String username = usernameField.getText();
+        String password = passwordField.getText();
+        if (username.isEmpty() || password.isEmpty()) {
+            messageLabel.setText(bundle.getString("auth.register.empty"));
+            return;
+        }
+
+        if (networkClient != null) {
+            try { networkClient.close(); } catch (IOException ignored) {}
+        }
+        networkClient = new NetworkClient();
+        if (!networkClient.connect("localhost", 5000)) {
+            messageLabel.setText(bundle.getString("auth.connection.error"));
+            return;
+        }
+        HumanBeing user = new HumanBeing();
+        user.setName(username);
+        user.setCar(new Car(password));
+        ExecutionResponse response = networkClient.sendCommand("register", user, null);
+        if (response.isSuccess()) {
+            messageLabel.setText(bundle.getString("auth.register.success"));
+        } else {
+            messageLabel.setText(bundle.getString("auth.register.fail") + " " + response.getMessage());
+            try { networkClient.close(); } catch (IOException ignored) {}
+        }
+    }
+
+    public NetworkClient getNetworkClient() {
+        return networkClient;
+    }
+    public Integer getUserId() {
+        return userId;
+    }
+}
+package main.gui.controllers;
+
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.stage.Stage;
+import javafx.stage.Window;
+import main.gui.MainApp;
+import main.gui.NetworkClient;
+import models.HumanBeing;
+import utility.ExecutionResponse;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+import java.util.ResourceBundle;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.util.Duration;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class MainWindowController {
+    @FXML private ComboBox<String> languageBox;
+    @FXML private ListView<String> commandListView;
+    @FXML private Label commandTitle;
+    @FXML private TextArea commandOutput;
+    @FXML private Button executeButton;
+    @FXML private TextField argumentField;
+    @FXML private Button registerButton;
+    @FXML private Button exitButton;
+    @FXML private Label usernameLabel;
+    @FXML private Label timeLabel;
+    private Timeline clockTimeline;
+    private DateTimeFormatter timeFormatter;
+    private String username;
+    private NetworkClient networkClient;
+    private Integer userId;
+    private ResourceBundle bundle;
+    private int lastLanguageIndex = -1;
+    private final ObservableList<HumanBeing> masterData = FXCollections.observableArrayList();
+
+    // Храним открытый ShowController для "живого" обновления (может быть список, если несколько окон)
+    private ShowController showController = null;
+
+    private final List<String> commands = Arrays.asList(
+            "add", "update", "remove_head", "clear", "info", "show",
+            "help", "filter_starts", "print_unique",
+            "count_less", "execute_script", "removebyid"
+    );
+
+    @FXML
+    private void handleShow() throws IOException {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/main/gui/views/show.fxml"));
+        Parent root = loader.load();
+        ShowController controller = loader.getController();
+        controller.setNetworkClient(networkClient);
+        controller.setData(masterData, userId);
+        this.showController = controller; // сохраняем ссылку для последующих обновлений
+        Stage stage = new Stage();
+        stage.setScene(new Scene(root));
+        stage.setTitle("HumanBeing Table");
+        stage.show();
+
+        // --- ДОБАВЛЯЕМ: закрытие всех окон при закрытии главного окна ---
+        Stage mainStage = (Stage) executeButton.getScene().getWindow();
+        mainStage.setOnCloseRequest(event -> {
+            // Закрыть все открытые окна
+            for (Window window : Window.getWindows()) {
+                if (window instanceof Stage) {
+                    ((Stage) window).close();
+                }
+            }
+            // И завершить приложение
+            Platform.exit();
+        });
+        // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+    }
+
+    public void initSession(NetworkClient networkClient, Integer userId, String username) {
+        this.networkClient = networkClient;
+        this.userId = userId;
+        this.username = username;
+        usernameLabel.setText("Пользователь: " + username);
+        startClock();
+        List<String> visibleCommands = new ArrayList<>(commands);
+        commandListView.setItems(FXCollections.observableArrayList(visibleCommands));
+    }
+
+    @FXML
+    private void initialize() {
+        languageBox.getItems().setAll("Русский", "Македонский", "Latviešu", "Español (Colombia)");
+        Locale current = MainApp.getLocale();
+        int idx = 0;
+        if (current.getLanguage().equals("ru")) idx = 0;
+        else if (current.getLanguage().equals("mk")) idx = 1;
+        else if (current.getLanguage().equals("lv")) idx = 2;
+        else if (current.getLanguage().equals("es")) idx = 3;
+        languageBox.getSelectionModel().select(idx);
+        lastLanguageIndex = idx;
+
+        bundle = MainApp.getBundle();
+        updateTexts();
+
+        languageBox.getSelectionModel().selectedIndexProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            if (newVal.intValue() == lastLanguageIndex) return;
+            lastLanguageIndex = newVal.intValue();
+            Locale locale;
+            switch (newVal.intValue()) {
+                case 0: locale = new Locale("ru", "RU"); break;
+                case 1: locale = new Locale("mk", "MK"); break;
+                case 2: locale = new Locale("lv", "LV"); break;
+                case 3: locale = new Locale("es", "CO"); break;
+                default: locale = Locale.getDefault();
+            }
+            MainApp.setLocale(locale);
+            java.util.ResourceBundle.clearCache();
+            bundle = MainApp.getBundle();
+            updateTexts();
+            updateTimeFormatter();
+            updateClock();
+        });
+
+        commandListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            commandTitle.setText(newVal == null ? "" : newVal);
+            commandOutput.clear();
+            argumentField.clear();
+        });
+        commandListView.getSelectionModel().selectFirst();
+
+        executeButton.setOnAction(event -> executeSelectedCommand());
+        argumentField.setOnAction(event -> executeSelectedCommand());
+        registerButton.setOnAction(event -> goToRegister());
+        exitButton.setOnAction(event -> exitApp());
+    }
+
+    private void updateTexts() {
+        executeButton.setText(bundle.getString("main.execute"));
+        registerButton.setText(bundle.getString("main.register"));
+        exitButton.setText(bundle.getString("main.exit"));
+        commandTitle.setText(bundle.getString("main.commandTitle"));
+        argumentField.setPromptText(bundle.getString("main.argument"));
+    }
+
+    private void executeSelectedCommand() {
+        String command = commandListView.getSelectionModel().getSelectedItem();
+        if (command == null) return;
+        String arg = argumentField.getText().trim();
+        Object argument = null;
+
+        try {
+            switch (command) {
+                case "add":
+                    openAddHumanDialog(null);
+                    return;
+                case "update":
+                    if (arg.isEmpty()) {
+                        commandOutput.setText(bundle.getString("main.update.need_id"));
+                        return;
+                    }
+                    try {
+                        Long id = Long.parseLong(arg);
+                        HumanBeing humanBeing = new HumanBeing();
+                        humanBeing.setId(id);
+                        ExecutionResponse getResp = networkClient.sendCommand("get_by_id", humanBeing, userId);
+                        if (!getResp.isSuccess() || getResp.getHumanBeing() == null) {
+                            commandOutput.setText(bundle.getString("main.update.not_found"));
+                            return;
+                        }
+                        openAddHumanDialog(getResp.getHumanBeing());
+                    } catch (NumberFormatException e) {
+                        commandOutput.setText(bundle.getString("main.update.id_number"));
+                    }
+                    return;
+                case "removebyid":
+                    if (arg.isEmpty()) {
+                        commandOutput.setText(bundle.getString("main.removebyid.need_id"));
+                        return;
+                    }
+                    try {
+                        Long id = Long.parseLong(arg);
+                        HumanBeing removeHuman = new HumanBeing();
+                        removeHuman.setId(id);
+                        argument = removeHuman;
+                    } catch (NumberFormatException e) {
+                        commandOutput.setText(bundle.getString("main.removebyid.id_number"));
+                        return;
+                    }
+                    break;
+                case "count_less":
+                    if (arg.isEmpty()) {
+                        commandOutput.setText(bundle.getString("main.count_less.need_value"));
+                        return;
+                    }
+                    try {
+                        long impactSpeed = Long.parseLong(arg);
+                        HumanBeing countHuman = new HumanBeing();
+                        countHuman.setImpactSpeed(impactSpeed);
+                        argument = countHuman;
+                    } catch (NumberFormatException e) {
+                        commandOutput.setText(bundle.getString("main.count_less.value_number"));
+                        return;
+                    }
+                    break;
+                case "filter_starts":
+                    if (arg.isEmpty()) {
+                        commandOutput.setText(bundle.getString("main.filter_starts.need_value"));
+                        return;
+                    }
+                    HumanBeing filterHuman = new HumanBeing();
+                    filterHuman.setName(arg);
+                    argument = filterHuman;
+                    break;
+                case "execute_script":
+                    if (arg.isEmpty()) {
+                        commandOutput.setText(bundle.getString("main.execute_script.need_file"));
+                        return;
+                    }
+                    HumanBeing scriptHuman = new HumanBeing();
+                    scriptHuman.setName(arg);
+                    argument = scriptHuman;
+                    break;
+                default:
+                    argument = null;
+            }
+        } catch (Exception e) {
+            commandOutput.setText(bundle.getString("main.error") + ": " + e.getMessage());
+            return;
+        }
+
+        // КОМАНДЫ ВЫВОДЯЩИЕ СПИСОК
+        if (command.equals("help") || command.equals("info") || command.equals("show") || command.equals("clear")) {
+            String currentLang = MainApp.getLocale().getLanguage();
+            HumanBeing langArg = new HumanBeing();
+            langArg.setName(currentLang);
+            ExecutionResponse response = networkClient.sendCommand(command, langArg, userId);
+
+            if ("help".equals(command)) {
+                String filtered = Arrays.stream(response.getMessage().split("\\r?\\n"))
+                        .filter(line -> !line.trim().startsWith("login") && !line.trim().startsWith("register"))
+                        .collect(Collectors.joining("\n"));
+                commandOutput.setText(filtered);
+            } else if ("show".equals(command)) {
+                List<HumanBeing> humans = response.getHumanBeings();
+                if (humans != null) {
+                    // Главная строка: это обновляет masterData для всех ShowController!
+                    masterData.setAll(humans);
+                    // Если окно уже открыто, просто обновляем коллекцию, не открываем новое!
+                    if (showController != null) {
+                        showController.refresh(); // метод, который обновит фильтр и таблицу
+                    } else {
+                        try {
+                            handleShow();
+                        } catch (IOException e) {
+                            commandOutput.setText("Ошибка открытия окна: " + e.getMessage());
+                        }
+                    }
+                } else {
+                    commandOutput.setText("Нет данных для отображения");
+                }
+            } else {
+                commandOutput.setText(response.getMessage());
+            }
+        } else {
+            ExecutionResponse response = networkClient.sendCommand(command, (HumanBeing) argument, userId);
+            commandOutput.setText(response.getMessage());
+            // После любой команды, изменяющей коллекцию, обнови masterData через show!
+            if (Arrays.asList("add", "removebyid", "remove_head", "clear").contains(command)) {
+                // Сразу после изменения — подгрузи show и обнови коллекцию и все ShowController
+                ExecutionResponse showResponse = networkClient.sendCommand("show", null, userId);
+                List<HumanBeing> humans = showResponse.getHumanBeings();
+                if (humans != null) {
+                    masterData.setAll(humans);
+                    if (showController != null) showController.refresh();
+                }
+            }
+        }
+    }
+
+    private void openAddHumanDialog(HumanBeing humanBeing) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/main/gui/views/add_human.fxml"));
+            loader.setResources(MainApp.getBundle());
+            Parent root = loader.load();
+            AddHumanController controller = loader.getController();
+
+            if (humanBeing == null) {
+                controller.init(networkClient, userId, MainApp.getLocale().getLanguage(), this::refreshData);
+            } else {
+                controller.initForUpdate(networkClient, userId, humanBeing, MainApp.getLocale().getLanguage(), this::refreshData);
+            }
+
+            Stage stage = new Stage();
+            stage.setTitle(humanBeing == null ? bundle.getString("main.add.title") : bundle.getString("main.update.title"));
+            stage.setScene(new Scene(root));
+            stage.initOwner(executeButton.getScene().getWindow());
+            stage.showAndWait();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void goToRegister() {
+        try {
+            if (networkClient != null) {
+                networkClient.close();
+            }
+        } catch (Exception ignored) {}
+        try {
+            Stage stage = (Stage) registerButton.getScene().getWindow();
+            stage.close();
+            MainApp.showAuthWindow();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void exitApp() {
+        try {
+            networkClient.sendCommand("exit", null, userId);
+            networkClient.close();
+        } catch (Exception ignored) {}
+        Platform.exit();
+    }
+
+    private void refreshData() {
+        ExecutionResponse showResponse = networkClient.sendCommand("show", null, userId);
+        List<HumanBeing> humans = showResponse.getHumanBeings();
+        if (humans != null) {
+            masterData.setAll(humans);
+            if (showController != null) showController.refresh();
+        }
+    }
+
+    private void startClock() {
+        updateTimeFormatter();
+        if (clockTimeline != null) {
+            clockTimeline.stop();
+        }
+        clockTimeline = new Timeline(
+                new KeyFrame(Duration.ZERO, e -> updateClock()),
+                new KeyFrame(Duration.seconds(1))
+        );
+        clockTimeline.setCycleCount(Timeline.INDEFINITE);
+        clockTimeline.play();
+    }
+
+    private void updateClock() {
+        LocalDateTime now = LocalDateTime.now();
+        timeLabel.setText(now.format(timeFormatter));
+    }
+
+    private void updateTimeFormatter() {
+        Locale locale = MainApp.getLocale();
+        // Выбор паттерна и локали для разных языков
+        String pattern;
+        switch (locale.getLanguage()) {
+            case "ru":
+                pattern = "dd.MM.yyyy HH:mm:ss";
+                break;
+            case "mk":
+            case "lv":
+                pattern = "yyyy.MM.dd HH:mm:ss";
+                break;
+            case "es":
+                pattern = "dd/MM/yyyy HH:mm:ss";
+                break;
+            default:
+                pattern = "yyyy-MM-dd HH:mm:ss";
+        }
+        timeFormatter = DateTimeFormatter.ofPattern(pattern, locale);
+    }
+}
+package main.gui.controllers;
+
+import javafx.beans.property.*;
+import javafx.collections.*;
+import javafx.collections.transformation.*;
+import javafx.css.PseudoClass;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.*;
+import javafx.stage.Stage;
+import javafx.util.converter.DoubleStringConverter;
+import javafx.util.converter.FloatStringConverter;
+import javafx.util.converter.LongStringConverter;
+import main.gui.NetworkClient;
+import models.HumanBeing;
+
+public class ShowController {
+    @FXML private TableView<HumanBeing> tableView;
+    @FXML private TableColumn<HumanBeing, Long> idColumn;
+    @FXML private TableColumn<HumanBeing, String> nameColumn;
+    @FXML private TableColumn<HumanBeing, Double> coordinateXColumn;
+    @FXML private TableColumn<HumanBeing, Float> coordinateYColumn;
+    @FXML private TableColumn<HumanBeing, Long> impactSpeedColumn;
+    @FXML private TableColumn<HumanBeing, Boolean> realHeroColumn;
+    @FXML private TableColumn<HumanBeing, Boolean> hasToothpickColumn;
+    @FXML private TableColumn<HumanBeing, String> weaponTypeColumn;
+    @FXML private TableColumn<HumanBeing, String> moodColumn;
+    @FXML private TableColumn<HumanBeing, String> carNameColumn;
+    @FXML private TableColumn<HumanBeing, Integer> userIdColumn;
+    @FXML private TextField filterField;
+    @FXML private ComboBox<String> columnFilterBox;
+    @FXML private Button visualizeButton;
+
+    private ObservableList<HumanBeing> masterData;
+    private FilteredList<HumanBeing> filteredData;
+    private int currentUserId;
+    private NetworkClient networkClient;
+
+    // PseudoClass для чужих строк
+    private static final PseudoClass FOREIGN_ROW = PseudoClass.getPseudoClass("foreign");
+
+    public void setNetworkClient(NetworkClient networkClient) {
+        this.networkClient = networkClient;
+    }
+
+    public void initialize() {
+        ObservableList<String> columns = FXCollections.observableArrayList(
+                "",
+                "id",
+                "name",
+                "coordinate_x",
+                "coordinate_y",
+                "impact_speed",
+                "real_hero",
+                "has_toothpick",
+                "weapon_type",
+                "mood",
+                "car_name",
+                "user_id"
+        );
+        visualizeButton.setOnAction(e -> openVisualizeWindow());
+        columnFilterBox.setItems(columns);
+        columnFilterBox.getSelectionModel().selectFirst();
+
+        tableView.setEditable(true);
+
+        idColumn.setCellValueFactory(data -> new SimpleLongProperty(data.getValue().getId()).asObject());
+        idColumn.setEditable(false);
+
+        nameColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
+        nameColumn.setCellFactory(col -> editableStringCell((hb, value) -> hb.setName(value)));
+
+        coordinateXColumn.setCellValueFactory(data -> new SimpleDoubleProperty(data.getValue().getCoordinates().getX()).asObject());
+        coordinateXColumn.setCellFactory(col -> editableDoubleCell((hb, value) -> hb.getCoordinates().setX(value)));
+
+        coordinateYColumn.setCellValueFactory(data -> new SimpleFloatProperty(data.getValue().getCoordinates().getY()).asObject());
+        coordinateYColumn.setCellFactory(col -> editableFloatCell((hb, value) -> hb.getCoordinates().setY(value)));
+
+        impactSpeedColumn.setCellValueFactory(data -> new SimpleLongProperty(data.getValue().getImpactSpeed()).asObject());
+        impactSpeedColumn.setCellFactory(col -> editableLongCell((hb, value) -> hb.setImpactSpeed(value)));
+
+        realHeroColumn.setCellValueFactory(data -> new SimpleBooleanProperty(data.getValue().getRealHero()).asObject());
+        realHeroColumn.setCellFactory(col -> {
+            ComboBoxTableCell<HumanBeing, Boolean> cell = new ComboBoxTableCell<>(
+                    FXCollections.observableArrayList(Boolean.TRUE, Boolean.FALSE)) {
+                @Override
+                public void updateItem(Boolean item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty) {
+                        setText(null);
+                    } else if (item != null && item) {
+                        setText("✔");
+                    } else {
+                        setText("✘");
+                    }
+                }
+            };
+            cell.setComboBoxEditable(true);
+            return cell;
+        });
+        realHeroColumn.setOnEditCommit(event -> {
+            HumanBeing hb = event.getRowValue();
+            if (hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                hb.setRealHero(event.getNewValue());
+                saveHuman(hb);
+            }
+        });
+        realHeroColumn.setEditable(true);
+
+        hasToothpickColumn.setCellValueFactory(data -> new SimpleObjectProperty<>(data.getValue().getHasToothpick()));
+        hasToothpickColumn.setCellFactory(col -> {
+            ComboBoxTableCell<HumanBeing, Boolean> cell = new ComboBoxTableCell<>(
+                    FXCollections.observableArrayList(Boolean.TRUE, Boolean.FALSE, null)) {
+                @Override
+                public void updateItem(Boolean item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty) {
+                        setText(null);
+                    } else if (item == null) {
+                        setText("—");
+                    } else if (item) {
+                        setText("✔");
+                    } else {
+                        setText("✘");
+                    }
+                }
+            };
+            cell.setComboBoxEditable(true);
+            return cell;
+        });
+        hasToothpickColumn.setOnEditCommit(event -> {
+            HumanBeing hb = event.getRowValue();
+            if (hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                hb.setHasToothpick(event.getNewValue());
+                saveHuman(hb);
+            }
+        });
+        hasToothpickColumn.setEditable(true);
+
+        weaponTypeColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                data.getValue().getWeaponType() != null ? data.getValue().getWeaponType().toString() : ""));
+        weaponTypeColumn.setCellFactory(col -> editableStringCell((hb, value) -> {
+            try { hb.setWeaponType(models.WeaponType.valueOf(value)); } catch (Exception e) {}
+        }));
+
+        moodColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                data.getValue().getMood() != null ? data.getValue().getMood().toString() : ""));
+        moodColumn.setCellFactory(col -> editableStringCell((hb, value) -> hb.setMood(value)));
+
+        carNameColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                data.getValue().getCar() != null ? data.getValue().getCar().getName() : ""));
+        carNameColumn.setCellFactory(col -> editableStringCell((hb, value) -> {
+            if (hb.getCar() != null) hb.getCar().setName(value);
+        }));
+
+        userIdColumn.setCellValueFactory(data -> new SimpleIntegerProperty(
+                data.getValue().getUserId() == null ? -1 : data.getValue().getUserId()).asObject());
+        userIdColumn.setEditable(false);
+
+        // filteredData/masterData инициализируются в setData!
+    }
+
+    public void setData(ObservableList<HumanBeing> data, int currentUserId) {
+        this.currentUserId = currentUserId;
+        this.masterData = data;
+        this.filteredData = new FilteredList<>(masterData, p -> true);
+
+        filterField.textProperty().addListener((obs, oldVal, newVal) -> applyFilter());
+        columnFilterBox.valueProperty().addListener((obs, oldVal, newVal) -> applyFilter());
+
+        SortedList<HumanBeing> sortedData = new SortedList<>(filteredData);
+        sortedData.comparatorProperty().bind(tableView.comparatorProperty());
+        tableView.setItems(sortedData);
+
+        // Псевдокласс для чужих строк
+        tableView.setRowFactory(tv -> new TableRow<HumanBeing>() {
+            @Override
+            public void updateItem(HumanBeing item, boolean empty) {
+                super.updateItem(item, empty);
+                boolean isForeign = !empty && item != null && !item.getUserId().equals(currentUserId);
+                pseudoClassStateChanged(FOREIGN_ROW, isForeign);
+            }
+        });
+    }
+
+    // Метод для обновления фильтра и таблицы (вызывается из MainWindowController, если masterData обновилась)
+    public void refresh() {
+        if (filteredData != null) {
+            filteredData.setPredicate(filteredData.getPredicate());
+        }
+        tableView.refresh();
+    }
+
+    private void applyFilter() {
+        String filterText = filterField.getText();
+        String selectedColumn = columnFilterBox.getValue();
+
+        if (filteredData == null) return;
+
+        if (filterText == null || filterText.isEmpty()) {
+            filteredData.setPredicate(hb -> true);
+            return;
+        }
+        String lower = filterText.toLowerCase();
+
+        filteredData.setPredicate(hb -> {
+            if (selectedColumn == null || selectedColumn.isEmpty()) {
+                return String.valueOf(hb.getId()).contains(lower)
+                        || (hb.getName() != null && hb.getName().toLowerCase().contains(lower))
+                        || String.valueOf(hb.getCoordinates().getX()).contains(lower)
+                        || String.valueOf(hb.getCoordinates().getY()).contains(lower)
+                        || (hb.getCreationDate() != null && hb.getCreationDate().toString().toLowerCase().contains(lower))
+                        || String.valueOf(hb.getImpactSpeed()).contains(lower)
+                        || String.valueOf(hb.getRealHero()).toLowerCase().contains(lower)
+                        || String.valueOf(hb.getHasToothpick()).toLowerCase().contains(lower)
+                        || (hb.getWeaponType() != null && hb.getWeaponType().toString().toLowerCase().contains(lower))
+                        || (hb.getMood() != null && hb.getMood().toLowerCase().contains(lower))
+                        || (hb.getCar() != null && hb.getCar().getName() != null && hb.getCar().getName().toLowerCase().contains(lower))
+                        || String.valueOf(hb.getUserId()).contains(lower);
+            } else {
+                switch (selectedColumn) {
+                    case "id": return String.valueOf(hb.getId()).contains(lower);
+                    case "name": return hb.getName() != null && hb.getName().toLowerCase().contains(lower);
+                    case "coordinate_x": return String.valueOf(hb.getCoordinates().getX()).contains(lower);
+                    case "coordinate_y": return String.valueOf(hb.getCoordinates().getY()).contains(lower);
+                    case "impact_speed": return String.valueOf(hb.getImpactSpeed()).contains(lower);
+                    case "real_hero": return String.valueOf(hb.getRealHero()).toLowerCase().contains(lower);
+                    case "has_toothpick": return String.valueOf(hb.getHasToothpick()).toLowerCase().contains(lower);
+                    case "weapon_type": return hb.getWeaponType() != null && hb.getWeaponType().toString().toLowerCase().contains(lower);
+                    case "mood": return hb.getMood() != null && hb.getMood().toLowerCase().contains(lower);
+                    case "car_name": return hb.getCar() != null && hb.getCar().getName() != null && hb.getCar().getName().toLowerCase().contains(lower);
+                    case "user_id": return String.valueOf(hb.getUserId()).contains(lower);
+                    default: return false;
+                }
+            }
+        });
+    }
+
+    private TableCell<HumanBeing, String> editableStringCell(BiConsumer<HumanBeing, String> setter) {
+        return new TextFieldTableCell<HumanBeing, String>() {
+            @Override
+            public void startEdit() {
+                HumanBeing hb = getTableRow().getItem();
+                if (hb != null && hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                    super.startEdit();
+                }
+            }
+            @Override
+            public void commitEdit(String newValue) {
+                HumanBeing hb = getTableRow().getItem();
+                if (hb != null && hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                    setter.accept(hb, newValue);
+                    saveHuman(hb);
+                }
+                super.commitEdit(newValue);
+            }
+        };
+    }
+    private TableCell<HumanBeing, Double> editableDoubleCell(BiConsumer<HumanBeing, Double> setter) {
+        return new TextFieldTableCell<>(new DoubleStringConverter()) {
+            @Override
+            public void startEdit() {
+                HumanBeing hb = getTableRow().getItem();
+                if (hb != null && hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                    super.startEdit();
+                }
+            }
+            @Override
+            public void commitEdit(Double newValue) {
+                HumanBeing hb = getTableRow().getItem();
+                if (hb != null && hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                    setter.accept(hb, newValue);
+                    saveHuman(hb);
+                }
+                super.commitEdit(newValue);
+            }
+        };
+    }
+    private TableCell<HumanBeing, Float> editableFloatCell(BiConsumer<HumanBeing, Float> setter) {
+        return new TextFieldTableCell<>(new FloatStringConverter()) {
+            @Override
+            public void startEdit() {
+                HumanBeing hb = getTableRow().getItem();
+                if (hb != null && hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                    super.startEdit();
+                }
+            }
+            @Override
+            public void commitEdit(Float newValue) {
+                HumanBeing hb = getTableRow().getItem();
+                if (hb != null && hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                    setter.accept(hb, newValue);
+                    saveHuman(hb);
+                }
+                super.commitEdit(newValue);
+            }
+        };
+    }
+    private TableCell<HumanBeing, Long> editableLongCell(BiConsumer<HumanBeing, Long> setter) {
+        return new TextFieldTableCell<>(new LongStringConverter()) {
+            @Override
+            public void startEdit() {
+                HumanBeing hb = getTableRow().getItem();
+                if (hb != null && hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                    super.startEdit();
+                }
+            }
+            @Override
+            public void commitEdit(Long newValue) {
+                HumanBeing hb = getTableRow().getItem();
+                if (hb != null && hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                    setter.accept(hb, newValue);
+                    saveHuman(hb);
+                }
+                super.commitEdit(newValue);
+            }
+        };
+    }
+    private TableCell<HumanBeing, Boolean> editableBooleanCell(BiConsumer<HumanBeing, Boolean> setter) {
+        return new CheckBoxTableCell<HumanBeing, Boolean>() {
+            @Override
+            public void updateItem(Boolean item, boolean empty) {
+                super.updateItem(item, empty);
+                TableRow<HumanBeing> row = getTableRow();
+                HumanBeing hb = row == null ? null : row.getItem();
+                setEditable(hb != null && hb.getUserId() != null && hb.getUserId().equals(currentUserId));
+            }
+            @Override
+            public void commitEdit(Boolean newValue) {
+                HumanBeing hb = getTableRow().getItem();
+                if (hb != null && hb.getUserId() != null && hb.getUserId().equals(currentUserId)) {
+                    setter.accept(hb, newValue);
+                    saveHuman(hb);
+                }
+                super.commitEdit(newValue);
+            }
+        };
+    }
+
+    private void saveHuman(HumanBeing hb) {
+        if (networkClient != null) {
+            networkClient.sendCommand("update", hb, currentUserId);
+        }
+    }
+
+    @FunctionalInterface
+    public interface BiConsumer<T, U> {
+        void accept(T t, U u);
+    }
+
+    private void openVisualizeWindow() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/main/gui/views/visualize.fxml"));
+            Parent root = loader.load();
+            VisualizeController controller = loader.getController();
+            controller.setData(masterData);
+            Stage stage = new Stage();
+            stage.setTitle("Visualization");
+            stage.setScene(new Scene(root));
+            stage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+package main.gui.controllers;
+
+import javafx.application.Platform;
+import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.scene.web.WebView;
+import models.HumanBeing;
+import netscape.javascript.JSObject;
+import java.util.*;
+
+public class VisualizeController {
+    @FXML private WebView webView;
+
+    private ObservableList<HumanBeing> data;
+    private final Map<Integer, javafx.scene.paint.Color> userColors = new HashMap<>();
+    private final Random colorRandom = new Random(1337);
+
+    public void setData(ObservableList<HumanBeing> data) {
+        this.data = data;
+        if (data != null) {
+            data.addListener((ListChangeListener<HumanBeing>) change -> updatePeopleOnMap());
+        }
+        updatePeopleOnMap();
+    }
+
+    private void updatePeopleOnMap() {
+        if (webView == null || data == null) return;
+        Object hasShowPeople = webView.getEngine().executeScript("typeof window.showPeople === 'function'");
+        Object hasMap = webView.getEngine().executeScript("typeof window.map !== 'undefined'");
+        Object hasMarkers = webView.getEngine().executeScript("typeof window.peopleMarkers !== 'undefined'");
+        if (!(hasShowPeople instanceof Boolean) || !(Boolean)hasShowPeople ||
+                !(hasMap instanceof Boolean) || !(Boolean)hasMap ||
+                !(hasMarkers instanceof Boolean) || !(Boolean)hasMarkers) {
+            new Timer().schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    Platform.runLater(() -> updatePeopleOnMap());
+                }
+            }, 200);
+            return;
+        }
+        JSObject window = (JSObject) webView.getEngine().executeScript("window");
+        StringBuilder jsArray = new StringBuilder("[");
+        for (HumanBeing hb : data) {
+            if (hb == null || hb.getCoordinates() == null) continue;
+            jsArray.append("{");
+            jsArray.append("lat:").append(hb.getCoordinates().getY()).append(",");
+            jsArray.append("lon:").append(hb.getCoordinates().getX()).append(",");
+            jsArray.append("name:'").append(escape(hb.getName())).append("',");
+            jsArray.append("userId:").append(hb.getUserId() == null ? -1 : hb.getUserId()).append(",");
+            jsArray.append("id:'").append(hb.getId()).append("',");
+            jsArray.append("impactSpeed:").append(hb.getImpactSpeed()).append(",");
+            jsArray.append("realHero:'").append(hb.getRealHero()).append("',");
+            jsArray.append("hasToothpick:'").append(hb.getHasToothpick()).append("',");
+            jsArray.append("weaponType:'").append(hb.getWeaponType()).append("',");
+            jsArray.append("mood:'").append(hb.getMood()).append("',");
+            jsArray.append("car:'").append(hb.getCar() != null ? escape(hb.getCar().getName()) : "-").append("',");
+            javafx.scene.paint.Color color = getColorForUser(hb.getUserId() == null ? -1 : hb.getUserId());
+            jsArray.append("color:'").append(toRgbString(color)).append("'");
+            jsArray.append("},");
+        }
+        if (jsArray.length() > 1 && jsArray.charAt(jsArray.length() - 1) == ',') jsArray.deleteCharAt(jsArray.length() - 1);
+        jsArray.append("]");
+        window.eval("showPeople(" + jsArray + ");");
+    }
+
+    private String escape(String s) {
+        if (s == null) return "";
+        return s.replace("'", "\\'");
+    }
+
+    private javafx.scene.paint.Color getColorForUser(int userId) {
+        if (!userColors.containsKey(userId)) {
+            colorRandom.setSeed(userId * 1234567L);
+            javafx.scene.paint.Color c = javafx.scene.paint.Color.hsb(colorRandom.nextInt(360), 0.55, 0.85);
+            userColors.put(userId, c);
+        }
+        return userColors.get(userId);
+    }
+
+    @FXML
+    private void initialize() {
+        if (webView != null) {
+            webView.getEngine().setJavaScriptEnabled(true);
+            String html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8" />
+                <title>Yandex Map People</title>
+                <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
+                <style>
+                  html, body, #map { width:100%; height:100%; margin:0; padding:0; }
+                  .passport-table { font-size:14px; border-collapse:collapse; }
+                  .passport-table td { padding:2px 6px; }
+                  .passport-header { font-weight:bold; font-size:16px; color:#d33a7e; padding-bottom:4px; }
+                  .passport-label { color:#555; font-weight:bold; }
+                </style>
+            </head>
+            <body>
+            <div id="map"></div>
+            <script>
+                ymaps.ready(function () {
+                    window.map = new ymaps.Map('map', {
+                        center: [55.751574, 37.573856],
+                        zoom: 4
+                    });
+                    window.peopleMarkers = [];
+                    window.showPeople = function(peopleArr) {
+                        if (!window.map) return;
+                        for (let marker of window.peopleMarkers) window.map.geoObjects.remove(marker);
+                        window.peopleMarkers = [];
+                        for (let person of peopleArr) {
+                            let content = `
+                                <div class="passport-header">${person.name || "?"}</div>
+                                <table class="passport-table">
+                                  <tr><td class="passport-label">ID:</td><td>${person.id}</td></tr>
+                                  <tr><td class="passport-label">User ID:</td><td>${person.userId}</td></tr>
+                                  <tr><td class="passport-label">Impact Speed:</td><td>${person.impactSpeed}</td></tr>
+                                  <tr><td class="passport-label">Real Hero:</td><td>${person.realHero}</td></tr>
+                                  <tr><td class="passport-label">Has Toothpick:</td><td>${person.hasToothpick}</td></tr>
+                                  <tr><td class="passport-label">Weapon Type:</td><td>${person.weaponType}</td></tr>
+                                  <tr><td class="passport-label">Mood:</td><td>${person.mood}</td></tr>
+                                  <tr><td class="passport-label">Car:</td><td>${person.car}</td></tr>
+                                </table>
+                            `;
+                            let marker = new ymaps.Placemark([person.lat, person.lon], {
+                                hintContent: person.name,
+                                balloonContent: content
+                            }, {
+                                preset: 'islands#circleIcon',
+                                iconColor: person.color
+                            });
+                            window.peopleMarkers.push(marker);
+                            window.map.geoObjects.add(marker);
+                        }
+                    }
+                });
+            </script>
+            </body>
+            </html>
+            """;
+            webView.getEngine().loadContent(html, "text/html");
+            webView.getEngine().getLoadWorker().stateProperty().addListener((obs, old, newState) -> {
+                if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
+                    updatePeopleOnMap();
+                }
+            });
+        }
+    }
+
+    private String toRgbString(javafx.scene.paint.Color c) {
+        int r = (int) (c.getRed() * 255);
+        int g = (int) (c.getGreen() * 255);
+        int b = (int) (c.getBlue() * 255);
+        return String.format("rgb(%d,%d,%d)", r, g, b);
+    }
+}
+package models;
+
+import java.io.Serializable;
+
+public class Car implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private String name;
+
+    public Car(String name) {
+        this.name = name;
+    }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+}
+package models;
+
+import java.io.Serializable;
+
+public class Coordinates implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private double x;
+    private float y;
+
+    public Coordinates(double x, float y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public double getX() { return x; }
+    public void setX(double x) { this.x = x; }
+    public float getY() { return y; }
+    public void setY(float y) { this.y = y; }
+}
+package models;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+public class HumanBeing implements Comparable<HumanBeing>, Serializable {
+    private static final long serialVersionUID = 1L;
+    private Long id;
+    private String name;
+    private Coordinates coordinates;
+    private LocalDateTime creationDate;
+    private boolean realHero;
+    private Boolean hasToothpick;
+    private Long impactSpeed;
+    private WeaponType weaponType;
+    private String mood;
+    private Car car;
+    private Integer userId;
+
+    public HumanBeing() {}
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public Coordinates getCoordinates() { return coordinates; }
+    public void setCoordinates(Coordinates coordinates) { this.coordinates = coordinates; }
+    public LocalDateTime getCreationDate() { return creationDate; }
+    public void setCreationDate(LocalDateTime creationDate) { this.creationDate = creationDate; }
+    public boolean getRealHero() { return realHero; }
+    public void setRealHero(boolean realHero) { this.realHero = realHero; }
+    public Boolean getHasToothpick() { return hasToothpick; }
+    public void setHasToothpick(Boolean hasToothpick) { this.hasToothpick = hasToothpick; }
+    public Long getImpactSpeed() { return impactSpeed; }
+    public void setImpactSpeed(Long impactSpeed) { this.impactSpeed = impactSpeed; }
+    public WeaponType getWeaponType() { return weaponType; }
+    public void setWeaponType(WeaponType weaponType) { this.weaponType = weaponType; }
+    public String getMood() { return mood; }
+    public void setMood(String mood) { this.mood = mood; }
+    public Car getCar() { return car; }
+    public void setCar(Car car) { this.car = car; }
+    public Integer getUserId() { return userId; }
+    public void setUserId(Integer userId) { this.userId = userId; }
+
+    @Override
+    public int compareTo(HumanBeing other) {
+        return Long.compare(this.impactSpeed != null ? this.impactSpeed : 0,
+                other.impactSpeed != null ? other.impactSpeed : 0);
+    }
+}
+package models;
+
+import java.io.Serializable;
+
+public enum Mood implements Serializable {
+    SADNESS, LONGING, CALM, RAGE, FRENZY;
+    private static final long serialVersionUID = 1L;
+}
+package models;
+
+import java.io.Serializable;
+
+public enum WeaponType implements Serializable {
+    AXE, SHOTGUN, RIFLE, KNIFE, MACHINE_GUN;
+    private static final long serialVersionUID = 1L;
+}
+package utility;
+
+public interface Console {
+    void println(String message);
+    String read(); // Assumed method instead of readLine()
+}
+package utility;
+
+import java.io.Serializable;
+import java.util.List;
+import models.HumanBeing;
+
+public class ExecutionResponse implements Serializable {
+    private boolean success;
+    private String message;
+    private HumanBeing humanBeing;
+    private List<HumanBeing> humanBeings; // <--- добавьте это поле
+
+    public ExecutionResponse(boolean success, String message) {
+        this.success = success;
+        this.message = message;
+        this.humanBeing = null;
+        this.humanBeings = null;
+    }
+
+    public ExecutionResponse(boolean success, String message, HumanBeing humanBeing) {
+        this.success = success;
+        this.message = message;
+        this.humanBeing = humanBeing;
+        this.humanBeings = null;
+    }
+
+    public ExecutionResponse(boolean success, String message, List<HumanBeing> humanBeings) {
+        this.success = success;
+        this.message = message;
+        this.humanBeing = null;
+        this.humanBeings = humanBeings;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public HumanBeing getHumanBeing() {
+        return humanBeing;
+    }
+
+    public List<HumanBeing> getHumanBeings() {
+        return humanBeings;
+    }
+}
+package utility;
+
+import models.*;
+
+import java.io.Serializable;
+
+public class HumanBeingAsker implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private final Console console;
+
+    public HumanBeingAsker(Console console) {
+        this.console = console;
+    }
+
+    public HumanBeing askHumanBeing() {
+        HumanBeing humanBeing = new HumanBeing();
+
+        while (true) {
+            console.println("Введите имя (не пустое):");
+            String name = console.read().trim();
+            if (name == null || name.isEmpty()) {
+                console.println("Ошибка: имя не может быть пустым");
+                continue;
+            }
+            humanBeing.setName(name);
+            break;
+        }
+
+        double x = 0.0;
+        while (true) {
+            try {
+                console.println("Введите координату x (дробное число, не больше " + Double.MAX_VALUE + "):");
+                String xInput = console.read().trim();
+                if (xInput.isEmpty()) {
+                    console.println("Ошибка: координата x не может быть пустой");
+                    continue;
+                }
+                x = Double.parseDouble(xInput);
+                if (Double.isInfinite(x) || Double.isNaN(x)) {
+                    console.println("Ошибка: координата x должна быть конечным числом");
+                    continue;
+                }
+                if (Math.abs(x) > Double.MAX_VALUE) {
+                    console.println("Ошибка: координата x превышает допустимый диапазон (±" + Double.MAX_VALUE + ")");
+                    continue;
+                }
+                break;
+            } catch (NumberFormatException e) {
+                console.println("Ошибка: введите корректное дробное число для x");
+            }
+        }
+
+        float y = 0.0f;
+        while (true) {
+            try {
+                console.println("Введите координату y (дробное число, не больше " + Float.MAX_VALUE + "):");
+                String yInput = console.read().trim();
+                if (yInput.isEmpty()) {
+                    console.println("Ошибка: координата y не может быть пустой");
+                    continue;
+                }
+                y = Float.parseFloat(yInput);
+                if (Float.isInfinite(y) || Float.isNaN(y)) {
+                    console.println("Ошибка: координата y должна быть конечным числом");
+                    continue;
+                }
+                if (Math.abs(y) > Float.MAX_VALUE) {
+                    console.println("Ошибка: координата y превышает допустимый диапазон (±" + Float.MAX_VALUE + ")");
+                    continue;
+                }
+                break;
+            } catch (NumberFormatException e) {
+                console.println("Ошибка: введите корректное дробное число для y");
+            }
+        }
+
+        humanBeing.setCoordinates(new Coordinates(x, y));
+
+        while (true) {
+            console.println("Введите realHero (true/false):");
+            String realHeroInput = console.read().trim().toLowerCase();
+            if (realHeroInput.equals("true") || realHeroInput.equals("false")) {
+                humanBeing.setRealHero(Boolean.parseBoolean(realHeroInput));
+                break;
+            }
+            console.println("Ошибка: введите true или false");
+        }
+
+        while (true) {
+            console.println("Введите hasToothpick (true/false/null):");
+            String hasToothpickInput = console.read().trim().toLowerCase();
+            if (hasToothpickInput.equals("true") || hasToothpickInput.equals("false")) {
+                humanBeing.setHasToothpick(Boolean.parseBoolean(hasToothpickInput));
+                break;
+            } else if (hasToothpickInput.equals("null")) {
+                humanBeing.setHasToothpick(null);
+                break;
+            }
+            console.println("Ошибка: введите true, false или null");
+        }
+
+        while (true) {
+            console.println("Введите impactSpeed (целое число):");
+            String input = console.read().trim();
+            if (input.isEmpty()) {
+                console.println("Ошибка: значение не может быть пустым");
+                continue;
+            }
+            try {
+                long impactSpeed = Long.parseLong(input);
+                humanBeing.setImpactSpeed(impactSpeed);
+                break;
+            } catch (NumberFormatException e) {
+                console.println("Ошибка: введите корректное целое число");
+            }
+        }
+
+        while (true) {
+            console.println("Введите weaponType (AXE/SHOTGUN/RIFLE/KNIFE/MACHINE_GUN):");
+            String weaponInput = console.read().trim();
+            if (weaponInput.isEmpty()) {
+                console.println("Ошибка: значение не может быть пустым");
+                continue;
+            }
+            try {
+                humanBeing.setWeaponType(WeaponType.valueOf(weaponInput.toUpperCase()));
+                break;
+            } catch (IllegalArgumentException e) {
+                console.println("Ошибка: выберите один из типов оружия: AXE, SHOTGUN, RIFLE, KNIFE, MACHINE_GUN");
+            }
+        }
+
+        while (true) {
+            console.println("Введите mood (SADNESS/LONGING/CALM/RAGE/FRENZY):");
+            String moodInput = console.read().trim();
+            if (moodInput.isEmpty()) {
+                console.println("Ошибка: значение не может быть пустым");
+                continue;
+            }
+            try {
+                Mood mood = Mood.valueOf(moodInput.toUpperCase());
+                humanBeing.setMood(mood.toString());
+                break;
+            } catch (IllegalArgumentException e) {
+                console.println("Ошибка: выберите одно из настроений: SADNESS, LONGING, CALM, RAGE, FRENZY");
+            }
+        }
+
+        while (true) {
+            console.println("Введите car.name (не пустое):");
+            String carName = console.read().trim();
+            if (carName.isEmpty()) {
+                console.println("Ошибка: имя машины не может быть пустым");
+                continue;
+            }
+            humanBeing.setCar(new Car(carName));
+            break;
+        }
+
+        humanBeing.setCreationDate(java.time.LocalDateTime.now());
+
+        return humanBeing;
+    }
+}
+package utility;
+
+import models.HumanBeing;
+
+import java.util.Locale;
+import java.util.ResourceBundle;
+
+public class LocalizationUtil {
+    public static ResourceBundle getBundle(HumanBeing argument) {
+        String lang = "ru";
+        if (argument != null && argument.getName() != null && !argument.getName().trim().isEmpty()) {
+            lang = argument.getName().trim();
+        }
+        try {
+            return ResourceBundle.getBundle("messages", new Locale(lang));
+        } catch (Exception e) {
+            return ResourceBundle.getBundle("messages", new Locale("ru"));
+        }
+    }
+}
+package utility;
+
+import models.HumanBeing;
+
+public class Request implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+    private String commandName;
+    private HumanBeing argument;
+    private Integer userId;
+
+    public Request(String commandName, HumanBeing argument, Integer userId) {
+        this.commandName = commandName;
+        this.argument = argument;
+        this.userId = userId;
+    }
+
+    public String getCommandName() {
+        return commandName;
+    }
+
+    public HumanBeing getArgument() {
+        return argument;
+    }
+
+    public Integer getUserId() {
+        return userId;
+    }
+}
+package utility;
+
+import java.util.Scanner;
+
+public class StandardConsole implements Console {
+    private final Scanner scanner = new Scanner(System.in);
+
+    @Override
+    public void println(String message) {
+        System.out.println(message);
+    }
+
+    @Override
+    public String read() {
+        return scanner.nextLine();
+    }
+}
+package utility;
+
+public interface Validatable {
+    boolean validate();
+}
+package commands;
+
+import managers.CollectionManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.ResourceBundle;
+
+public class Add extends Command {
+    private final Console console;
+    private final CollectionManager collectionManager;
+
+    public Add(Console console, CollectionManager collectionManager) {
+        super("add", "добавить новый элемент в коллекцию");
+        this.console = console;
+        this.collectionManager = collectionManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        String lang = "ru";
+        if (argument != null && argument.getName() != null && !argument.getName().isEmpty())
+            lang = argument.getName();
+        ResourceBundle bundle;
+        try {
+            bundle = ResourceBundle.getBundle("messages", new Locale(lang));
+        } catch (Exception e) {
+            bundle = ResourceBundle.getBundle("messages", new Locale("ru"));
+        }
+
+        if (userId == null) {
+            return new ExecutionResponse(false, bundle.getString("add.error.not_authorized"));
+        }
+
+        if (argument == null) {
+            return new ExecutionResponse(false, bundle.getString("add.error.no_argument"));
+        }
+
+        argument.setUserId(userId);
+        argument.setCreationDate(LocalDateTime.now());
+        boolean added = collectionManager.add(argument, userId);
+
+        if (added) {
+            // argument уже содержит id после добавления в базу/коллекцию
+            return new ExecutionResponse(true, bundle.getString("add.success"), argument);
+        } else {
+            return new ExecutionResponse(false, bundle.getString("add.error"));
+        }
+    }
+}
+package commands;
+
+import managers.CollectionManager;
+import managers.DatabaseManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+import java.util.Locale;
+import java.util.ResourceBundle;
+
+public class Clear extends Command {
+    private final Console console;
+    private final CollectionManager collectionManager;
+    private final DatabaseManager dbManager;
+
+    public Clear(Console console, CollectionManager collectionManager, DatabaseManager dbManager) {
+        super("clear", "очистить коллекцию");
+        this.console = console;
+        this.collectionManager = collectionManager;
+        this.dbManager = dbManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        console.println("Выполняется команда: clear, userId: " + userId);
+
+        String lang = "ru";
+        if (argument != null && argument.getName() != null && !argument.getName().trim().isEmpty()) {
+            lang = argument.getName().trim();
+        }
+        ResourceBundle bundle;
+        try {
+            bundle = ResourceBundle.getBundle("messages", new Locale(lang));
+        } catch (Exception e) {
+            bundle = ResourceBundle.getBundle("messages", new Locale("ru"));
+        }
+
+        if (userId == null) {
+            return new ExecutionResponse(false, bundle.getString("clear.error.not_authorized"));
+        }
+
+        boolean success = collectionManager.clear(userId);
+        if (success) {
+            return new ExecutionResponse(true, bundle.getString("clear.success") + " " + userId);
+        } else {
+            return new ExecutionResponse(false, bundle.getString("clear.error.failed"));
+        }
+    }
+}
+package commands;
+
+import models.HumanBeing;
+import utility.ExecutionResponse;
+
+public abstract class Command {
+    protected String name;
+    protected String description;
+
+    public Command(String name, String description) {
+        this.name = name;
+        this.description = description;
+    }
+
+    public abstract ExecutionResponse execute(HumanBeing argument, Integer userId);
+
+    public String getName() {
+        return name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+}
+package commands;
+
+import managers.CollectionManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+public class CountLessThanImpactSpeed extends Command {
+    private final Console console;
+    private final CollectionManager collectionManager;
+
+    public CountLessThanImpactSpeed(Console console, CollectionManager collectionManager) {
+        super("count_less", "вывести количество элементов, значение поля impactSpeed которых меньше заданного");
+        this.console = console;
+        this.collectionManager = collectionManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        console.println("Выполняется команда: count_less, userId: " + userId);
+        if (argument == null || argument.getImpactSpeed() == null) {
+            return new ExecutionResponse(false, "Ошибка: необходимо указать значение impactSpeed");
+        }
+
+        long threshold = argument.getImpactSpeed();
+        long count = collectionManager.getCollection().stream()
+                .filter(h -> h.getUserId().equals(userId))
+                .filter(h -> h.getImpactSpeed() < threshold)
+                .count();
+
+        return new ExecutionResponse(true, "Количество элементов с impactSpeed меньше " + threshold + ": " + count);
+    }
+}
+package commands;
+
+import models.HumanBeing;
+import models.Coordinates;
+import models.Car;
+import models.WeaponType;
+import models.Mood;
+import utility.Console;
+import utility.ExecutionResponse;
+import managers.CommandManager;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.util.*;
+
+public class ExecuteScript extends Command {
+    private final Console console;
+    private final CommandManager commandManager;
+    private final Set<String> executedFiles = new HashSet<>();
+    private final List<String> inputLines = new ArrayList<>();
+
+    public ExecuteScript(Console console, CommandManager commandManager) {
+        super("execute_script", "исполнить скрипт из файла");
+        this.console = console;
+        this.commandManager = commandManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing humanBeing, Integer userId) {
+        if (humanBeing == null || humanBeing.getName() == null || humanBeing.getName().trim().isEmpty()) {
+            return new ExecutionResponse(false, "Требуется путь к файлу скрипта");
+        }
+
+        String scriptPath = humanBeing.getName().trim();
+
+        try {
+            String absolutePath = Paths.get(scriptPath).toAbsolutePath().toString();
+
+            if (executedFiles.contains(absolutePath)) {
+                return new ExecutionResponse(false, "Обнаружена рекурсия: файл " + scriptPath + " уже выполняется");
+            }
+
+            executedFiles.add(absolutePath);
+            StringBuilder scriptOutput = new StringBuilder();
+
+            try (BufferedReader reader = new BufferedReader(new FileReader(absolutePath))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    line = line.trim();
+                    if (line.isEmpty() || line.startsWith("#")) continue;
+
+                    String[] parts = line.split("\\s+", 2);
+                    String commandName = parts[0].toLowerCase();
+                    HumanBeing commandHumanBeing = new HumanBeing();
+
+                    if (commandName.equals("execute_script")) {
+                        commandHumanBeing.setName(parts.length > 1 ? parts[1] : "");
+                    } else if (commandName.equals("add") || commandName.equals("update")) {
+                        // Читаем следующие 9 строк для команды add/update
+                        inputLines.clear();
+                        for (int i = 0; i < 9; i++) {
+                            String nextLine = reader.readLine();
+                            if (nextLine == null) {
+                                return new ExecutionResponse(false, 
+                                    String.format("Неожиданный конец файла при чтении параметров команды %s. " +
+                                    "Прочитано %d из 9 параметров. Проверьте, что все параметры указаны и нет пустых строк.", 
+                                    commandName, inputLines.size()));
+                            }
+                            nextLine = nextLine.trim();
+                            if (nextLine.isEmpty()) {
+                                i--; // Пропускаем пустые строки
+                                continue;
+                            }
+                            inputLines.add(nextLine);
+                        }
+                        // Устанавливаем параметры в объект HumanBeing в правильном порядке
+                        if (commandName.equals("update")) {
+                            try {
+                                Long id = Long.parseLong(inputLines.get(0));
+                                commandHumanBeing.setId(id);
+                                // Удаляем ID из списка параметров, чтобы не мешал установке остальных полей
+                                inputLines.remove(0);
+                            } catch (NumberFormatException e) {
+                                return new ExecutionResponse(false, "Ошибка: ID должен быть числом");
+                            }
+                        }
+                        if (inputLines.size() >= 1) commandHumanBeing.setName(inputLines.get(0));
+                        if (inputLines.size() >= 2) {
+                            try {
+                                int x = Integer.parseInt(inputLines.get(1));
+                                int y = Integer.parseInt(inputLines.get(2));
+                                commandHumanBeing.setCoordinates(new Coordinates(x, y));
+                            } catch (NumberFormatException e) {
+                                return new ExecutionResponse(false, "Ошибка: координаты должны быть числами");
+                            }
+                        }
+                        if (inputLines.size() >= 4) {
+                            try {
+                                Long impactSpeed = Long.parseLong(inputLines.get(3));
+                                commandHumanBeing.setImpactSpeed(impactSpeed);
+                            } catch (NumberFormatException e) {
+                                return new ExecutionResponse(false, "Ошибка: скорость удара должна быть числом");
+                            }
+                        }
+                        if (inputLines.size() >= 5) {
+                            try {
+                                boolean realHero = Boolean.parseBoolean(inputLines.get(4));
+                                commandHumanBeing.setRealHero(realHero);
+                            } catch (Exception e) {
+                                return new ExecutionResponse(false, "Ошибка: параметр realHero должен быть true или false");
+                            }
+                        }
+                        if (inputLines.size() >= 6) {
+                            String hasToothpick = inputLines.get(5);
+                            if (!hasToothpick.equals("null")) {
+                                try {
+                                    boolean hasToothpickValue = Boolean.parseBoolean(hasToothpick);
+                                    commandHumanBeing.setHasToothpick(hasToothpickValue);
+                                } catch (Exception e) {
+                                    return new ExecutionResponse(false, "Ошибка: параметр hasToothpick должен быть true, false или null");
+                                }
+                            }
+                        }
+                        if (inputLines.size() >= 7) {
+                            try {
+                                WeaponType weaponType = WeaponType.valueOf(inputLines.get(6).toUpperCase());
+                                commandHumanBeing.setWeaponType(weaponType);
+                            } catch (IllegalArgumentException e) {
+                                return new ExecutionResponse(false, "Ошибка: неверный тип оружия");
+                            }
+                        }
+                        if (inputLines.size() >= 8) {
+                            String moodStr = inputLines.get(7).toUpperCase();
+                            commandHumanBeing.setMood(moodStr);
+                        }
+                        if (inputLines.size() >= 9) {
+                            String carName = inputLines.get(8);
+                            commandHumanBeing.setCar(new Car(carName));
+                        }
+                        // Устанавливаем дату создания для команды add
+                        if (commandName.equals("add")) {
+                            commandHumanBeing.setCreationDate(LocalDateTime.now());
+                        }
+                    } else if (commandName.equals("removebyid")) {
+                        if (parts.length > 1) {
+                            try {
+                                commandHumanBeing.setId(Long.parseLong(parts[1]));
+                            } catch (NumberFormatException e) {
+                                return new ExecutionResponse(false, "Ошибка: ID должен быть числом");
+                            }
+                        }
+                    } else if (parts.length > 1) {
+                        commandHumanBeing.setName(parts[1]);
+                    }
+
+                    ExecutionResponse response = commandManager.executeCommand(commandName, commandHumanBeing, userId);
+                    scriptOutput.append(response.getMessage()).append("\n");
+                }
+            } finally {
+                executedFiles.remove(absolutePath);
+            }
+
+            return new ExecutionResponse(true, scriptOutput.toString().trim());
+        } catch (IOException e) {
+            return new ExecutionResponse(false, "Ошибка при чтении файла: " + e.getMessage());
+        }
+    }
+}
+package commands;
+
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+public class Exit extends Command {
+    private final Console console;
+
+    public Exit(Console console) {
+        super("exit", "завершить работу клиента");
+        this.console = console;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        console.println("Завершение работы клиента");
+        return new ExecutionResponse(true, "Клиент отключен");
+    }
+}
+package commands;
+
+import managers.CollectionManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+public class FilterStartsWithName extends Command {
+    private final Console console;
+    private final CollectionManager collectionManager;
+
+    public FilterStartsWithName(Console console, CollectionManager collectionManager) {
+        super("filter_starts", "вывести элементы, значение поля name которых начинается с заданной подстроки");
+        this.console = console;
+        this.collectionManager = collectionManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        console.println("Выполняется команда: filter_starts, userId: " + userId);
+        if (userId == null) {
+            return new ExecutionResponse(false, "Ошибка: необходимо авторизоваться (login) или зарегистрироваться (register)");
+        }
+        if (argument == null || argument.getName() == null) {
+            return new ExecutionResponse(false, "Ошибка: необходимо указать подстроку для поля name");
+        }
+
+        String prefix = argument.getName();
+        console.println("Ищем элементы с именем, начинающимся с: " + prefix);
+        
+        StringBuilder response = new StringBuilder("Элементы с именем, начинающимся с \"" + prefix + "\":\n");
+        boolean found = false;
+        int totalElements = 0;
+        int matchingElements = 0;
+
+        for (HumanBeing human : collectionManager.getCollection()) {
+            totalElements++;
+            console.println("Проверяем элемент: " + human.getName() + " (userId: " + human.getUserId() + ")");
+            if (human.getName().startsWith(prefix) && human.getUserId().equals(userId)) {
+                response.append(human.toString()).append("\n");
+                found = true;
+                matchingElements++;
+            }
+        }
+
+        console.println("Всего элементов в коллекции: " + totalElements);
+        console.println("Найдено совпадающих элементов: " + matchingElements);
+
+        if (!found) {
+            response.append("Элементы не найдены.");
+        }
+
+        return new ExecutionResponse(true, response.toString());
+    }
+}
+package commands;
+
+import managers.CollectionManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+import java.util.List;
+
+public class GetById extends Command {
+    private final Console console;
+    private final CollectionManager collectionManager;
+
+    public GetById(Console console, CollectionManager collectionManager) {
+        super("get_by_id", "получить элемент по id");
+        this.console = console;
+        this.collectionManager = collectionManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        if (userId == null) {
+            return new ExecutionResponse(false, "Ошибка: пользователь не авторизован");
+        }
+
+        if (argument == null || argument.getId() == null) {
+            return new ExecutionResponse(false, "Ошибка: не указан id элемента");
+        }
+
+        Long id = argument.getId();
+        List<HumanBeing> collection = collectionManager.getCollection();
+        HumanBeing humanBeing = collection.stream()
+                .filter(hb -> hb.getId().equals(id))
+                .findFirst()
+                .orElse(null);
+
+        if (humanBeing == null) {
+            return new ExecutionResponse(false, "Элемент с id " + id + " не найден в коллекции");
+        }
+
+        if (!humanBeing.getUserId().equals(userId)) {
+            return new ExecutionResponse(false, "Элемент с id " + id + " не принадлежит вам");
+        }
+
+        return new ExecutionResponse(true, "Элемент успешно получен", humanBeing);
+    }
+} 
+package commands;
+
+import managers.CommandManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+import java.util.Locale;
+import java.util.ResourceBundle;
+
+public class Help extends Command {
+    private final Console console;
+    private final CommandManager commandManager;
+
+    public Help(Console console, CommandManager commandManager) {
+        super("help", "вывести справку по доступным командам");
+        this.console = console;
+        this.commandManager = commandManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        String lang = "ru";
+        if (argument != null && argument.getName() != null && !argument.getName().trim().isEmpty()) {
+            lang = argument.getName().trim();
+        }
+        Locale locale = new Locale(lang);
+
+        ResourceBundle bundle; // <-- объявляем тут!ф
+        try {
+            bundle = ResourceBundle.getBundle("messages", locale);
+        } catch (Exception e) {
+            bundle = ResourceBundle.getBundle("messages", new Locale("ru"));
+        }
+
+        StringBuilder response = new StringBuilder(
+                bundle.containsKey("help.title")
+                        ? bundle.getString("help.title") + "\n"
+                        : "Доступные команды:\n"
+        );
+
+        for (var entry : commandManager.getCommands().entrySet()) {
+            String name = entry.getKey();
+            Command command = entry.getValue();
+            String key = "help." + name;
+            String description = bundle.containsKey(key)
+                    ? bundle.getString(key)
+                    : command.getDescription();
+            response.append(name).append(": ").append(description).append("\n");
+        }
+        return new ExecutionResponse(true, response.toString());
+    }
+}
+package commands;
+
+import managers.CollectionManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
+
+public class Info extends Command {
+    private final Console console;
+    private final CollectionManager collectionManager;
+
+    public Info(Console console, CollectionManager collectionManager) {
+        super("info", "вывести информацию о коллекции");
+        this.console = console;
+        this.collectionManager = collectionManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        console.println("Выполняется команда: info, userId: " + userId);
+
+        String lang = "ru";
+        if (argument != null && argument.getName() != null && !argument.getName().trim().isEmpty()) {
+            lang = argument.getName().trim();
+        }
+        ResourceBundle bundle;
+        try {
+            bundle = ResourceBundle.getBundle("messages", new Locale(lang));
+        } catch (Exception e) {
+            bundle = ResourceBundle.getBundle("messages", new Locale("ru"));
+        }
+
+        if (userId == null) {
+            return new ExecutionResponse(false, bundle.getString("info.error.not_authorized"));
+        }
+
+        List<HumanBeing> collection = collectionManager.getCollection();
+        int totalElements = collection.size();
+        int userElements = 0;
+        for (HumanBeing human : collection) {
+            if (human.getUserId().equals(userId)) userElements++;
+        }
+
+        StringBuilder response = new StringBuilder();
+        response.append(bundle.getString("info.type")).append(" ").append(collection.getClass().getSimpleName()).append("\n");
+        response.append(bundle.getString("info.init_date")).append(" ").append(collectionManager.getInitializationDate()).append("\n");
+        response.append(bundle.getString("info.total_elements")).append(" ").append(totalElements).append("\n");
+        response.append(bundle.getString("info.user_elements")).append(" ").append(userElements);
+
+        return new ExecutionResponse(true, response.toString());
+    }
+}
+package commands;
+
+import managers.DatabaseManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+public class Login extends Command {
+    private final DatabaseManager dbManager;
+    private final Console console;
+
+    public Login(DatabaseManager dbManager, Console console) {
+        super("login", "авторизоваться с существующим пользователем");
+        this.dbManager = dbManager;
+        this.console = console;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing user, Integer userId) {
+        console.println("Выполняется команда: login, userId: " + userId);
+        if (user == null || user.getName() == null || user.getCar() == null || user.getCar().getName() == null) {
+            return new ExecutionResponse(false, "Ошибка: " + "необходимо указать имя пользователя и пароль");
+        }
+
+        String username = user.getName();
+        String password = user.getCar().getName();
+        console.println("Попытка авторизации: username=" + username);
+        Integer resultId = dbManager.loginUser(username, password);
+        if (resultId != null) {
+            return new ExecutionResponse(true, String.valueOf(resultId));
+        } else {
+            return new ExecutionResponse(false, "Ошибка авторизации: неверный username или password");
+        }
+    }
+}
+package commands;
+
+import managers.CollectionManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+import java.util.HashSet;
+import java.util.Set;
+
+public class PrintUniqueImpactSpeed extends Command {
+    private final Console console;
+    private final CollectionManager collectionManager;
+
+    public PrintUniqueImpactSpeed(Console console, CollectionManager collectionManager) {
+        super("print_unique_impact_speed", "вывести уникальные значения поля impactSpeed");
+        this.console = console;
+        this.collectionManager = collectionManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        console.println("Выполняется команда: print_unique_impact_speed, userId: " + userId);
+        if (userId == null) {
+            return new ExecutionResponse(false, "Ошибка: необходимо авторизоваться (login) или зарегистрироваться (register)");
+        }
+
+        Set<Long> uniqueSpeeds = new HashSet<>();
+        for (HumanBeing human : collectionManager.getCollection()) {
+            if (human.getUserId().equals(userId)) {
+                uniqueSpeeds.add(human.getImpactSpeed());
+            }
+        }
+
+        if (uniqueSpeeds.isEmpty()) {
+            return new ExecutionResponse(true, "У вас нет элементов в коллекции.");
+        }
+
+        StringBuilder response = new StringBuilder("Уникальные значения impactSpeed:\n");
+        for (Long speed : uniqueSpeeds) {
+            response.append(speed).append("\n");
+        }
+
+        return new ExecutionResponse(true, response.toString());
+    }
+}
+package commands;
+
+import managers.DatabaseManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+public class Register extends Command {
+    private final DatabaseManager dbManager;
+    private final Console console;
+
+    public Register(DatabaseManager dbManager, Console console) {
+        super("register", "зарегистрировать нового пользователя");
+        this.dbManager = dbManager;
+        this.console = console;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing user, Integer userId) {
+        console.println("Выполняется команда: register, userId: " + userId);
+        if (user == null || user.getName() == null || user.getCar() == null || user.getCar().getName() == null) {
+            return new ExecutionResponse(false, "Ошибка: необходимо указать username и password");
+        }
+
+        String username = user.getName();
+        String password = user.getCar().getName();
+        console.println("Попытка регистрации: username=" + username);
+
+        Integer newUserId = dbManager.registerUser(username, password);
+        if (newUserId != null) {
+            return new ExecutionResponse(true, String.valueOf(newUserId));
+        } else {
+            return new ExecutionResponse(false, "Ошибка регистрации: пользователь уже существует или неверные данные");
+        }
+    }
+}
+package commands;
+
+import managers.CollectionManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+import java.util.List;
+
+public class RemoveById extends Command {
+    private final Console console;
+    private final CollectionManager collectionManager;
+
+    public RemoveById(Console console, CollectionManager collectionManager) {
+        super("removebyid", "удалить элемент из коллекции по его id");
+        this.console = console;
+        this.collectionManager = collectionManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        console.println("Выполняется команда: removebyid, userId: " + userId);
+        if (userId == null) {
+            return new ExecutionResponse(false, "Ошибка: пользователь не авторизован");
+        }
+        if (argument == null || argument.getId() == null) {
+            return new ExecutionResponse(false, "Ошибка: необходимо указать id для удаления");
+        }
+
+        Long id = argument.getId();
+        List<HumanBeing> collection = collectionManager.getCollection();
+        
+        HumanBeing humanBeing = collection.stream()
+                .filter(hb -> hb.getId().equals(id))
+                .findFirst()
+                .orElse(null);
+
+        if (humanBeing == null) {
+            console.println("Элемент с id " + id + " не найден в коллекции");
+            return new ExecutionResponse(false, "Ошибка: элемент с id " + id + " не существует в коллекции");
+        }
+        if (!humanBeing.getUserId().equals(userId)) {
+            console.println("Элемент с id " + id + " принадлежит userId=" + humanBeing.getUserId());
+            return new ExecutionResponse(false, "Ошибка: элемент с id " + id + " принадлежит другому пользователю");
+        }
+
+        boolean success = collectionManager.remove(id, userId);
+        if (success) {
+            console.println("Элемент с id " + id + " успешно удален");
+            return new ExecutionResponse(true, "Элемент с id " + id + " успешно удален");
+        } else {
+            console.println("Ошибка удаления id=" + id + " из базы данных");
+            return new ExecutionResponse(false, "Ошибка при удалении элемента с id " + id + ": не удалось удалить из базы данных");
+        }
+    }
+}
+package commands;
+
+import managers.CollectionManager;
+import managers.DatabaseManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+import java.util.List;
+
+public class RemoveHead extends Command {
+    private final CollectionManager collectionManager;
+    private final DatabaseManager databaseManager;
+    private final Console console;
+
+    public RemoveHead(CollectionManager collection, Console console, DatabaseManager databaseManager) {
+        super("remove_head", "вывести и удалить первый элемент коллекции");
+        this.collectionManager = collection;
+        this.databaseManager = databaseManager;
+        this.console = console;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        console.println("Выполняется команда: remove_head, userId: " + userId);
+        if (userId == null) {
+            return new ExecutionResponse(false, "Ошибка: пользователь не авторизован");
+        }
+
+        List<HumanBeing> collection = collectionManager.getCollection();
+        if (collection.isEmpty()) {
+            return new ExecutionResponse(false, "Коллекция пуста");
+        }
+
+        HumanBeing head = collection.stream()
+                .filter(h -> h.getUserId().equals(userId))
+                .findFirst()
+                .orElse(null);
+
+        if (head == null) {
+            return new ExecutionResponse(false, "Нет элементов, принадлежащих пользователю с ID " + userId);
+        }
+
+        boolean success = collectionManager.remove(head.getId(), userId);
+        if (success) {
+            return new ExecutionResponse(true, "Первый элемент: " + head.toString() + "\nЭлемент успешно удален");
+        } else {
+            return new ExecutionResponse(false, "Ошибка при удалении первого элемента");
+        }
+    }
+}
+package commands;
+
+import managers.CollectionManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
+
+public class Show extends Command {
+    private final Console console;
+    private final CollectionManager collectionManager;
+
+    public Show(Console console, CollectionManager collectionManager) {
+        super("show", "вывести все элементы коллекции");
+        this.console = console;
+        this.collectionManager = collectionManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        console.println("Выполняется команда: show, userId: " + userId);
+
+        String lang = "ru";
+        if (argument != null && argument.getName() != null && !argument.getName().trim().isEmpty()) {
+            lang = argument.getName().trim();
+        }
+        ResourceBundle bundle;
+        try {
+            bundle = ResourceBundle.getBundle("messages", new Locale(lang));
+        } catch (Exception e) {
+            bundle = ResourceBundle.getBundle("messages", new Locale("ru"));
+        }
+
+        if (userId == null) {
+            return new ExecutionResponse(false, bundle.getString("show.error.not_authorized"));
+        }
+
+        List<HumanBeing> allHumanBeingsList = collectionManager.getCollection();
+
+        StringBuilder response = new StringBuilder(bundle.getString("show.header") + "\n");
+        boolean found = false;
+        int totalElements = allHumanBeingsList.size();
+        int userElements = 0;
+
+        for (HumanBeing human : allHumanBeingsList) {
+            if (human.getUserId() != null && human.getUserId().equals(userId)) {
+                response.append(human.toString()).append("\n");
+                found = true;
+                userElements++;
+            }
+        }
+
+        console.println(bundle.getString("show.console.total") + totalElements);
+        console.println(bundle.getString("show.console.user") + userElements);
+
+        if (!found) {
+            response.append(bundle.getString("show.no_elements"));
+        }
+
+        return new ExecutionResponse(true, "Список успешно получен", allHumanBeingsList);
+    }
+}
+package commands;
+
+import managers.CollectionManager;
+import managers.DatabaseManager;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+import java.util.List;
+
+public class Update extends Command {
+    private final Console console;
+    private final CollectionManager collectionManager;
+    private final DatabaseManager dbManager;
+
+    public Update(Console console, CollectionManager collectionManager, DatabaseManager dbManager) {
+        super("update", "обновить элемент коллекции по его id");
+        this.console = console;
+        this.collectionManager = collectionManager;
+        this.dbManager = dbManager;
+    }
+
+    @Override
+    public ExecutionResponse execute(HumanBeing argument, Integer userId) {
+        console.println("Выполняется команда: update, userId: " + userId);
+        if (userId == null) {
+            return new ExecutionResponse(false, "Ошибка: пользователь не авторизован");
+        }
+        if (argument == null || argument.getId() == null) {
+            return new ExecutionResponse(false, "Ошибка: необходимо указать id для обновления");
+        }
+
+        Long id = argument.getId();
+        console.println("Содержимое коллекции перед обновлением id=" + id + ":");
+        for (Long key : collectionManager.getCollectionMap().keySet()) {
+            HumanBeing hb = collectionManager.getCollectionMap().get(key);
+            console.println("id=" + hb.getId() + ", userId=" + hb.getUserId());
+        }
+
+        List<HumanBeing> collection = collectionManager.getCollection();
+        HumanBeing oldHuman = collection.stream()
+                .filter(hb -> hb.getId().equals(id))
+                .findFirst()
+                .orElse(null);
+
+        if (oldHuman == null) {
+            console.println("Элемент с id " + id + " не найден в коллекции");
+            return new ExecutionResponse(false, "Ошибка: элемент с id " + id + " не существует в коллекции");
+        }
+        if (!oldHuman.getUserId().equals(userId)) {
+            console.println("Элемент с id " + id + " принадлежит userId=" + oldHuman.getUserId());
+            return new ExecutionResponse(false, "Ошибка: элемент с id " + id + " принадлежит другому пользователю");
+        }
+
+        argument.setUserId(userId);
+        argument.setCreationDate(oldHuman.getCreationDate());
+
+        boolean success = collectionManager.update(id, argument, userId);
+        if (success) {
+            console.println("Элемент с id " + id + " успешно обновлен");
+            return new ExecutionResponse(true, "Элемент с id " + id + " успешно обновлен");
+        } else {
+            console.println("Ошибка обновления id=" + id + " в базе данных");
+            return new ExecutionResponse(false, "Ошибка при обновлении элемента с id " + id + ": не удалось обновить в базе данных");
+        }
+    }
+}
+package main;
+
+import managers.CollectionManager;
+import managers.CommandManager;
+import managers.DatabaseManager;
+import server.Server;
+import utility.Console;
+import utility.StandardConsole;
+
+public class ServerMain {
+    public static void main(String[] args) {
+        Console console = new StandardConsole();
+        DatabaseManager databaseManager = new DatabaseManager();
+        CollectionManager collectionManager = new CollectionManager(databaseManager);
+        CommandManager commandManager = new CommandManager(console, collectionManager, databaseManager);
+        Server server = new Server(5000, commandManager);
+        server.run();
+    }
+}
+package managers;
+
+import models.HumanBeing;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class CollectionManager {
+    private final Map<Long, HumanBeing> collection;
+    private final DatabaseManager dbManager;
+    private final LocalDateTime initializationDate;
+
+    public CollectionManager(DatabaseManager dbManager) {
+        this.collection = new ConcurrentHashMap<>();
+        this.dbManager = dbManager;
+        this.initializationDate = LocalDateTime.now();
+    }
+
+    public List<HumanBeing> getCollection() {
+        return dbManager.loadHumanBeings();
+    }
+
+    public LocalDateTime getInitializationDate() {
+        return initializationDate;
+    }
+
+    public boolean add(HumanBeing humanBeing, Integer userId) {
+        if (humanBeing == null || userId == null) {
+            return false;
+        }
+        if (dbManager.add(humanBeing, userId)) {
+            collection.put(humanBeing.getId(), humanBeing);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean update(Long id, HumanBeing humanBeing, Integer userId) {
+        return dbManager.updateHumanBeing(id, humanBeing, userId);
+    }
+
+    public boolean remove(Long id, Integer userId) {
+        return dbManager.removeHumanBeing(id, userId);
+    }
+
+    public boolean clear(Integer userId) {
+        return dbManager.clearHumanBeings(userId);
+    }
+
+    public Map<Long, HumanBeing> getCollectionMap() {
+        return collection;
+    }
+}
+package managers;
+
+import commands.*;
+import models.HumanBeing;
+import utility.Console;
+import utility.ExecutionResponse;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class CommandManager {
+    private final Map<String, Command> commands = new HashMap<>();
+    private final Console console;
+
+    public CommandManager(Console console, CollectionManager collectionManager, DatabaseManager databaseManager) {
+        this.console = console;
+        commands.put("add", new Add(console, collectionManager));
+        commands.put("update", new Update(console, collectionManager, databaseManager));
+        commands.put("remove_head", new RemoveHead(collectionManager, console, databaseManager));
+        commands.put("clear", new Clear(console, collectionManager, databaseManager));
+        commands.put("info", new Info(console, collectionManager));
+        commands.put("show", new Show(console, collectionManager));
+        commands.put("login", new Login(databaseManager, console));
+        commands.put("register", new Register(databaseManager, console));
+        commands.put("exit", new Exit(console));
+        commands.put("help", new Help(console, this));
+        commands.put("filter_starts", new FilterStartsWithName(console, collectionManager));
+        commands.put("print_unique", new PrintUniqueImpactSpeed(console, collectionManager));
+        commands.put("count_less", new CountLessThanImpactSpeed(console, collectionManager));
+        commands.put("execute_script", new ExecuteScript(console, this));
+        commands.put("removebyid", new RemoveById(console, collectionManager));
+        commands.put("get_by_id", new GetById(console, collectionManager));
+    }
+
+    public ExecutionResponse executeCommand(String commandName, HumanBeing humanBeing, Integer userId) {
+        Command command = commands.get(commandName);
+        if (command == null) {
+            return new ExecutionResponse(false, "Команда '" + commandName + "' не найдена. Введите 'help' для списка команд.");
+        }
+        return command.execute(humanBeing, userId);
+    }
+
+    public Map<String, Command> getCommands() {
+        return commands;
+    }
+}
+package managers;
+
+import models.*;
+
+import java.sql.*;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class DatabaseManager {
+    private final String url = "jdbc:postgresql://localhost:5432/studs";
+    private final String user = "s434931";
+    private final String password = "250806";
+    private Connection connection;
+    private final Map<Long, HumanBeing> collection;
+
+    public DatabaseManager() {
+        this.collection = new ConcurrentHashMap<>();
+        connect();
+        loadHumanBeings();
+    }
+
+    private void connect() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+            }
+            connection = DriverManager.getConnection(url, user, password);
+            System.out.println("Подключение к базе данных установлено: " + url);
+        } catch (SQLException e) {
+            System.err.println("Ошибка подключения к базе данных: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void close() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+                System.out.println("Соединение с базой данных закрыто");
+            }
+        } catch (SQLException e) {
+            System.err.println("Ошибка при закрытии соединения с базой данных: " + e.getMessage());
+        }
+    }
+
+    public Map<Long, HumanBeing> getCollection() {
+        return collection;
+    }
+
+    public List<HumanBeing> loadHumanBeings() {
+        collection.clear();
+        List<HumanBeing> humans = new ArrayList<>();
+        String query = "SELECT * FROM human_beings";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
+            while (rs.next()) {
+                HumanBeing human = new HumanBeing();
+                human.setId(rs.getLong("id"));
+                human.setName(rs.getString("name"));
+                human.setCoordinates(new Coordinates(
+                        rs.getDouble("coordinate_x"),
+                        rs.getFloat("coordinate_y")
+                ));
+                human.setCreationDate(rs.getTimestamp("creation_date").toLocalDateTime());
+                human.setRealHero(rs.getBoolean("real_hero"));
+                human.setHasToothpick(rs.getObject("has_toothpick") != null ? rs.getBoolean("has_toothpick") : null);
+                human.setImpactSpeed(rs.getLong("impact_speed"));
+                human.setWeaponType(WeaponType.valueOf(rs.getString("weapon_type")));
+                human.setMood(rs.getString("mood"));
+                human.setCar(new Car(rs.getString("car_name")));
+                human.setUserId(rs.getInt("user_id"));
+                collection.put(human.getId(), human);
+                humans.add(human);
+            }
+            System.out.println("Коллекция загружена из базы данных: " + collection.size() + " элементов");
+            return humans;
+        } catch (SQLException e) {
+            System.err.println("Ошибка загрузки коллекции: " + e.getMessage());
+            return humans;
+        }
+    }
+
+    public boolean add(HumanBeing humanBeing, Integer userId) {
+        String sql = "INSERT INTO human_beings (name, coordinate_x, coordinate_y, creation_date, impact_speed, real_hero, has_toothpick, weapon_type, mood, car_name, user_id) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, humanBeing.getName());
+            pstmt.setDouble(2, humanBeing.getCoordinates().getX());
+            pstmt.setFloat(3, humanBeing.getCoordinates().getY());
+            pstmt.setTimestamp(4, Timestamp.valueOf(humanBeing.getCreationDate()));
+            pstmt.setLong(5, humanBeing.getImpactSpeed());
+            pstmt.setBoolean(6, humanBeing.getRealHero());
+            if (humanBeing.getHasToothpick() != null) {
+                pstmt.setBoolean(7, humanBeing.getHasToothpick());
+            } else {
+                pstmt.setNull(7, Types.BOOLEAN);
+            }
+            pstmt.setString(8, humanBeing.getWeaponType().toString());
+            pstmt.setString(9, humanBeing.getMood().toString());
+            pstmt.setString(10, humanBeing.getCar().getName());
+            pstmt.setInt(11, userId);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    long id = rs.getLong(1);
+                    humanBeing.setId(id);
+                    return true;
+                }
+            }
+            return false;
+        } catch (SQLException e) {
+            System.err.println("Ошибка при добавлении элемента: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean removeHumanBeing(Long id, Integer userId) {
+        if (id == null || userId == null) return false;
+        String query = "DELETE FROM human_beings WHERE id = ? AND user_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setLong(1, id);
+            pstmt.setInt(2, userId);
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                collection.remove(id);
+                return true;
+            }
+            return false;
+        } catch (SQLException e) {
+            System.err.println("Ошибка удаления: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean updateHumanBeing(Long id, HumanBeing humanBeing, Integer userId) {
+        if (id == null || humanBeing == null || userId == null) return false;
+        String query = "UPDATE human_beings SET name = ?, coordinate_x = ?, coordinate_y = ?, creation_date = ?, impact_speed = ?, real_hero = ?, has_toothpick = ?, weapon_type = ?, mood = ?, car_name = ? WHERE id = ? AND user_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, humanBeing.getName());
+            pstmt.setDouble(2, humanBeing.getCoordinates().getX());
+            pstmt.setFloat(3, humanBeing.getCoordinates().getY());
+            pstmt.setTimestamp(4, Timestamp.valueOf(humanBeing.getCreationDate()));
+            pstmt.setLong(5, humanBeing.getImpactSpeed());
+            pstmt.setBoolean(6, humanBeing.getRealHero());
+            if (humanBeing.getHasToothpick() != null) {
+                pstmt.setBoolean(7, humanBeing.getHasToothpick());
+            } else {
+                pstmt.setNull(7, Types.BOOLEAN);
+            }
+            pstmt.setString(8, humanBeing.getWeaponType().toString());
+            pstmt.setString(9, humanBeing.getMood().toString());
+            pstmt.setString(10, humanBeing.getCar().getName());
+            pstmt.setLong(11, id);
+            pstmt.setInt(12, userId);
+
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                humanBeing.setId(id);
+                humanBeing.setUserId(userId);
+                collection.put(id, humanBeing);
+                return true;
+            }
+            return false;
+        } catch (SQLException e) {
+            System.err.println("Ошибка обновления: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean clearHumanBeings(Integer userId) {
+        if (userId == null) return false;
+        String query = "DELETE FROM human_beings WHERE user_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setInt(1, userId);
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                collection.entrySet().removeIf(entry -> entry.getValue().getUserId().equals(userId));
+                return true;
+            }
+            return false;
+        } catch (SQLException e) {
+            System.err.println("Ошибка очистки: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public Integer loginUser(String username, String password) {
+        String query = "SELECT id, password FROM users WHERE username = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                String storedPassword = rs.getString("password");
+                String hashedInputPassword = hashPassword(password);
+                if (hashedInputPassword.equals(storedPassword)) {
+                    return rs.getInt("id");
+                }
+            }
+            return null;
+        } catch (SQLException e) {
+            System.err.println("Ошибка авторизации: " + e.getMessage());
+            return null;
+        }
+    }
+
+    public Integer registerUser(String username, String password) {
+        String query = "INSERT INTO users (username, password) VALUES (?, ?) RETURNING id";
+        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+            String hashedPassword = hashPassword(password);
+            System.out.println("Debug - Registration:");
+            System.out.println("Username: " + username);
+            System.out.println("Password: " + password);
+            System.out.println("Hashed password: " + hashedPassword);
+            pstmt.setString(1, username);
+            pstmt.setString(2, hashedPassword);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("id");
+            }
+            return null;
+        } catch (SQLException e) {
+            System.err.println("Ошибка регистрации: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private String hashPassword(String password) {
+        int hash = password.hashCode();
+        hash = hash * 31 + "SALT".hashCode();
+        hash = hash * 31 + password.length();
+        return String.format("%d", hash);
+    }
+}
+package models;
+
+import java.io.Serializable;
+
+public class Car implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private String name;
+
+    public Car(String name) {
+        this.name = name;
+    }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+}
+package models;
+
+import java.io.Serializable;
+
+public class Coordinates implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private double x;
+    private float y;
+
+    public Coordinates(double x, float y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public double getX() { return x; }
+    public void setX(double x) { this.x = x; }
+    public float getY() { return y; }
+    public void setY(float y) { this.y = y; }
+}
+package models;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+public class HumanBeing implements Comparable<HumanBeing>, Serializable {
+    private static final long serialVersionUID = 1L;
+    private Long id;
+    private String name;
+    private Coordinates coordinates;
+    private LocalDateTime creationDate;
+    private boolean realHero;
+    private Boolean hasToothpick;
+    private Long impactSpeed;
+    private WeaponType weaponType;
+    private String mood;
+    private Car car;
+    private Integer userId;
+
+    public HumanBeing() {}
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public Coordinates getCoordinates() { return coordinates; }
+    public void setCoordinates(Coordinates coordinates) { this.coordinates = coordinates; }
+    public LocalDateTime getCreationDate() { return creationDate; }
+    public void setCreationDate(LocalDateTime creationDate) { this.creationDate = creationDate; }
+    public boolean getRealHero() { return realHero; }
+    public void setRealHero(boolean realHero) { this.realHero = realHero; }
+    public Boolean getHasToothpick() { return hasToothpick; }
+    public void setHasToothpick(Boolean hasToothpick) { this.hasToothpick = hasToothpick; }
+    public Long getImpactSpeed() { return impactSpeed; }
+    public void setImpactSpeed(Long impactSpeed) { this.impactSpeed = impactSpeed; }
+    public WeaponType getWeaponType() { return weaponType; }
+    public void setWeaponType(WeaponType weaponType) { this.weaponType = weaponType; }
+    public String getMood() { return mood; }
+    public void setMood(String mood) { this.mood = mood; }
+    public Car getCar() { return car; }
+    public void setCar(Car car) { this.car = car; }
+    public Integer getUserId() { return userId; }
+    public void setUserId(Integer userId) { this.userId = userId; }
+
+    @Override
+    public int compareTo(HumanBeing other) {
+        return Long.compare(this.impactSpeed != null ? this.impactSpeed : 0,
+                other.impactSpeed != null ? other.impactSpeed : 0);
+    }
+}
+package models;
+
+import java.io.Serializable;
+
+public enum Mood implements Serializable {
+    SADNESS, LONGING, CALM, RAGE, FRENZY;
+    private static final long serialVersionUID = 1L;
+}
+package models;
+
+import java.io.Serializable;
+
+public enum WeaponType implements Serializable {
+    AXE, SHOTGUN, RIFLE, KNIFE, MACHINE_GUN;
+    private static final long serialVersionUID = 1L;
+}
+package server;
+
+import managers.CommandManager;
+import models.HumanBeing;
+import utility.ExecutionResponse;
+
+import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+
+public class Server {
+    private final int port;
+    private final CommandManager commandManager;
+
+    public Server(int port, CommandManager commandManager) {
+        this.port = port;
+        this.commandManager = commandManager;
+    }
+
+    public void run() {
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
+            System.out.println("Сервер запущен на порту " + port);
+            while (true) {
+                try (Socket clientSocket = serverSocket.accept()) {
+                    System.out.println("Клиент подключен: " + clientSocket.getInetAddress());
+                    handleClient(clientSocket);
+                } catch (Exception e) {
+                    System.out.println("Ошибка обработки клиента: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Ошибка сервера: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void handleClient(Socket clientSocket) throws IOException {
+        try (ObjectInputStream input = new ObjectInputStream(clientSocket.getInputStream());
+             ObjectOutputStream output = new ObjectOutputStream(clientSocket.getOutputStream())) {
+
+            while (!clientSocket.isClosed()) {
+                try {
+                    String commandName = (String) input.readObject();
+                    Object argument = input.readObject();
+                    Integer userId = (Integer) input.readObject();
+
+                    System.out.println("Получен запрос: command=" + commandName + ", userId=" + userId);
+                    if (argument != null) {
+                        if (argument instanceof HumanBeing) {
+                            HumanBeing hb = (HumanBeing) argument;
+                            System.out.println("Аргумент (HumanBeing): id=" + hb.getId() + ", userId=" + hb.getUserId());
+                        } else if (argument instanceof Long) {
+                            System.out.println("Аргумент: id=" + argument);
+                        } else {
+                            System.out.println("Аргумент: " + argument);
+                        }
+                    } else {
+                        System.out.println("Аргумент: null");
+                    }
+
+                    HumanBeing humanBeing = null;
+                    if (argument instanceof HumanBeing) {
+                        humanBeing = (HumanBeing) argument;
+                    } else if (argument instanceof Long) {
+                        humanBeing = new HumanBeing();
+                        humanBeing.setId((Long) argument);
+                    }
+
+                    ExecutionResponse response = commandManager.executeCommand(commandName, humanBeing, userId);
+
+                    output.writeObject(response);
+                    output.flush();
+
+                    if (commandName.equals("exit")) {
+                        System.out.println("Клиент отключен: " + clientSocket.getInetAddress());
+                        break;
+                    }
+                } catch (ClassNotFoundException e) {
+                    System.err.println("Ошибка чтения данных: " + e.getMessage());
+                    output.writeObject(new ExecutionResponse(false, "Ошибка чтения данных: " + e.getMessage()));
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Ошибка обработки клиента: " + e.getMessage());
+            throw e;
+        }
+    }
+}
+package utility;
+
+public interface Console {
+    void println(String message);
+    String read(); // Assumed method instead of readLine()
+}
+package utility;
+
+import java.io.Serializable;
+import java.util.List;
+import models.HumanBeing;
+
+public class ExecutionResponse implements Serializable {
+    private boolean success;
+    private String message;
+    private HumanBeing humanBeing;
+    private List<HumanBeing> humanBeings; // <-- Добавить это поле
+
+    public ExecutionResponse(boolean success, String message) {
+        this.success = success;
+        this.message = message;
+        this.humanBeing = null;
+        this.humanBeings = null;
+    }
+
+    public ExecutionResponse(boolean success, String message, HumanBeing humanBeing) {
+        this.success = success;
+        this.message = message;
+        this.humanBeing = humanBeing;
+        this.humanBeings = null;
+    }
+
+    public ExecutionResponse(boolean success, String message, List<HumanBeing> humanBeings) {
+        this.success = success;
+        this.message = message;
+        this.humanBeing = null;
+        this.humanBeings = humanBeings;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public HumanBeing getHumanBeing() {
+        return humanBeing;
+    }
+
+    public List<HumanBeing> getHumanBeings() {
+        return humanBeings;
+    }
+}
+package utility;
+
+import models.*;
+
+import java.io.Serializable;
+
+public class HumanBeingAsker implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private final Console console;
+
+    public HumanBeingAsker(Console console) {
+        this.console = console;
+    }
+
+    public HumanBeing askHumanBeing() {
+        HumanBeing humanBeing = new HumanBeing();
+
+        // Name
+        while (true) {
+            console.println("Введите имя (не пустое):");
+            String name = console.read().trim();
+            if (name == null || name.isEmpty()) {
+                console.println("Ошибка: имя не может быть пустым");
+                continue;
+            }
+            humanBeing.setName(name);
+            break;
+        }
+
+        // Coordinate X
+        double x = 0.0;
+        while (true) {
+            try {
+                console.println("Введите координату x (дробное число, не больше " + Double.MAX_VALUE + "):");
+                String xInput = console.read().trim();
+                if (xInput.isEmpty()) {
+                    console.println("Ошибка: координата x не может быть пустой");
+                    continue;
+                }
+                x = Double.parseDouble(xInput);
+                if (Double.isInfinite(x) || Double.isNaN(x)) {
+                    console.println("Ошибка: координата x должна быть конечным числом");
+                    continue;
+                }
+                if (Math.abs(x) > Double.MAX_VALUE) {
+                    console.println("Ошибка: координата x превышает допустимый диапазон (±" + Double.MAX_VALUE + ")");
+                    continue;
+                }
+                break;
+            } catch (NumberFormatException e) {
+                console.println("Ошибка: введите корректное дробное число для x");
+            }
+        }
+
+        // Coordinate Y
+        float y = 0.0f;
+        while (true) {
+            try {
+                console.println("Введите координату y (дробное число, не больше " + Float.MAX_VALUE + "):");
+                String yInput = console.read().trim();
+                if (yInput.isEmpty()) {
+                    console.println("Ошибка: координата y не может быть пустой");
+                    continue;
+                }
+                y = Float.parseFloat(yInput);
+                if (Float.isInfinite(y) || Float.isNaN(y)) {
+                    console.println("Ошибка: координата y должна быть конечным числом");
+                    continue;
+                }
+                if (Math.abs(y) > Float.MAX_VALUE) {
+                    console.println("Ошибка: координата y превышает допустимый диапазон (±" + Float.MAX_VALUE + ")");
+                    continue;
+                }
+                break;
+            } catch (NumberFormatException e) {
+                console.println("Ошибка: введите корректное дробное число для y");
+            }
+        }
+
+        // Устанавливаем координаты один раз после успешного ввода x и y
+        humanBeing.setCoordinates(new Coordinates(x, y));
+
+        // Real Hero
+        while (true) {
+            console.println("Введите realHero (true/false):");
+            String realHeroInput = console.read().trim().toLowerCase();
+            if (realHeroInput.equals("true") || realHeroInput.equals("false")) {
+                humanBeing.setRealHero(Boolean.parseBoolean(realHeroInput));
+                break;
+            }
+            console.println("Ошибка: введите true или false");
+        }
+
+        // Has Toothpick
+        while (true) {
+            console.println("Введите hasToothpick (true/false/null):");
+            String hasToothpickInput = console.read().trim().toLowerCase();
+            if (hasToothpickInput.equals("true") || hasToothpickInput.equals("false")) {
+                humanBeing.setHasToothpick(Boolean.parseBoolean(hasToothpickInput));
+                break;
+            } else if (hasToothpickInput.equals("null")) {
+                humanBeing.setHasToothpick(null);
+                break;
+            }
+            console.println("Ошибка: введите true, false или null");
+        }
+
+        // Impact Speed
+        while (true) {
+            console.println("Введите impactSpeed (целое число):");
+            String input = console.read().trim();
+            if (input.isEmpty()) {
+                console.println("Ошибка: значение не может быть пустым");
+                continue;
+            }
+            try {
+                long impactSpeed = Long.parseLong(input);
+                humanBeing.setImpactSpeed(impactSpeed);
+                break;
+            } catch (NumberFormatException e) {
+                console.println("Ошибка: введите корректное целое число");
+            }
+        }
+
+        // Weapon Type
+        while (true) {
+            console.println("Введите weaponType (AXE/SHOTGUN/RIFLE/KNIFE/MACHINE_GUN):");
+            String weaponInput = console.read().trim();
+            if (weaponInput.isEmpty()) {
+                console.println("Ошибка: значение не может быть пустым");
+                continue;
+            }
+            try {
+                humanBeing.setWeaponType(WeaponType.valueOf(weaponInput.toUpperCase()));
+                break;
+            } catch (IllegalArgumentException e) {
+                console.println("Ошибка: выберите один из типов оружия: AXE, SHOTGUN, RIFLE, KNIFE, MACHINE_GUN");
+            }
+        }
+
+        // Mood
+        while (true) {
+            console.println("Введите mood (SADNESS/LONGING/CALM/RAGE/FRENZY):");
+            String moodInput = console.read().trim();
+            if (moodInput.isEmpty()) {
+                console.println("Ошибка: значение не может быть пустым");
+                continue;
+            }
+            try {
+                Mood.valueOf(moodInput.toUpperCase()); // Validate input
+                humanBeing.setMood(moodInput);
+                break;
+            } catch (IllegalArgumentException e) {
+                console.println("Ошибка: выберите одно из настроений: SADNESS, LONGING, CALM, RAGE, FRENZY");
+            }
+        }
+
+        // Car
+        while (true) {
+            console.println("Введите car.name (не пустое):");
+            String carName = console.read().trim();
+            if (carName.isEmpty()) {
+                console.println("Ошибка: имя машины не может быть пустым");
+                continue;
+            }
+            humanBeing.setCar(new Car(carName));
+            break;
+        }
+
+        // Creation Date (set automatically)
+        humanBeing.setCreationDate(java.time.LocalDateTime.now());
+
+        return humanBeing;
+    }
+}
+package utility;
+
+import models.HumanBeing;
+
+import java.util.Locale;
+import java.util.ResourceBundle;
+
+public class LocalizationUtil {
+    public static ResourceBundle getBundle(HumanBeing argument) {
+        String lang = "ru";
+        if (argument != null && argument.getName() != null && !argument.getName().trim().isEmpty()) {
+            lang = argument.getName().trim();
+        }
+        try {
+            return ResourceBundle.getBundle("messages", new Locale(lang));
+        } catch (Exception e) {
+            return ResourceBundle.getBundle("messages", new Locale("ru"));
+        }
+    }
+}
+package utility;
+
+import models.HumanBeing;
+import java.io.Serializable;
+
+public class Request implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private String commandName;
+    private HumanBeing argument;
+    private Integer userId;
+
+    public Request(String commandName, HumanBeing argument, Integer userId) {
+        this.commandName = commandName;
+        this.argument = argument;
+        this.userId = userId;
+    }
+
+    public String getCommandName() {
+        return commandName;
+    }
+
+    public HumanBeing getArgument() {
+        return argument;
+    }
+
+    public Integer getUserId() {
+        return userId;
+    }
+
+    @Override
+    public String toString() {
+        return "Request{commandName='" + commandName + "', argument=" + argument + ", userId=" + userId + "}";
+    }
+}
+package utility;
+
+import java.util.Scanner;
+
+public class StandardConsole implements Console {
+    private final Scanner scanner = new Scanner(System.in);
+
+    @Override
+    public void println(String message) {
+        System.out.println(message);
+    }
+
+    @Override
+    public String read() {
+        return scanner.nextLine();
+    }
+}
+package utility;
+
+public interface Validatable {
+    boolean validate();
+}
