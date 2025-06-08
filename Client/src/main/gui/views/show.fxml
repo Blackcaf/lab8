@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
 <BorderPane xmlns:fx="http://javafx.com/fxml"
             fx:controller="main.gui.controllers.ShowController"
             stylesheets="@tableview-theme.css">
+
     <top>
-        <HBox spacing="8">
-            <ComboBox fx:id="columnFilterBox" prefWidth="100"/>
-            <TextField fx:id="filterField" promptText="Введите фильтр"/>
+        <HBox spacing="8" alignment="CENTER_RIGHT" BorderPane.alignment="CENTER">
+            <ComboBox fx:id="columnFilterBox" prefWidth="180"/>
+            <TextField fx:id="filterField" promptText="Введите фильтр" prefWidth="220"/>
+            <Button fx:id="visualizeButton" text="Visualize" prefWidth="110"/>
         </HBox>
     </top>
+
     <center>
         <TableView fx:id="tableView" editable="true">
             <columns>
@@ -28,4 +32,5 @@
             </columns>
         </TableView>
     </center>
+
 </BorderPane>

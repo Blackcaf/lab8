@@ -5,8 +5,12 @@ import javafx.collections.*;
 import javafx.collections.transformation.*;
 import javafx.css.PseudoClass;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.*;
+import javafx.stage.Stage;
 import javafx.util.converter.DoubleStringConverter;
 import javafx.util.converter.FloatStringConverter;
 import javafx.util.converter.LongStringConverter;
@@ -28,6 +32,7 @@ public class ShowController {
     @FXML private TableColumn<HumanBeing, Integer> userIdColumn;
     @FXML private TextField filterField;
     @FXML private ComboBox<String> columnFilterBox;
+    @FXML private Button visualizeButton;
 
     private ObservableList<HumanBeing> masterData;
     private FilteredList<HumanBeing> filteredData;
@@ -56,6 +61,7 @@ public class ShowController {
                 "car_name",
                 "user_id"
         );
+        visualizeButton.setOnAction(e -> openVisualizeWindow());
         columnFilterBox.setItems(columns);
         columnFilterBox.getSelectionModel().selectFirst();
 
@@ -343,5 +349,20 @@ public class ShowController {
     @FunctionalInterface
     public interface BiConsumer<T, U> {
         void accept(T t, U u);
+    }
+
+    private void openVisualizeWindow() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/main/gui/views/visualize.fxml"));
+            Parent root = loader.load();
+            VisualizeController controller = loader.getController();
+            controller.setData(masterData);
+            Stage stage = new Stage();
+            stage.setTitle("Visualization");
+            stage.setScene(new Scene(root));
+            stage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

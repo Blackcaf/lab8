@@ -12,24 +12,8 @@ public class Coordinates implements Serializable {
         this.y = y;
     }
 
-    public double getX() {
-        return x;
-    }
-
-    public void setX(double x) {
-        this.x = x;
-    }
-
-    public float getY() {
-        return y;
-    }
-
-    public void setY(float y) {
-        this.y = y;
-    }
-
-    @Override
-    public String toString() {
-        return String.format("(x=%.2f, y=%.2f)", x, y);
-    }
+    public double getX() { return x; }
+    public void setX(double x) { this.x = x; }
+    public float getY() { return y; }
+    public void setY(float y) { this.y = y; }
 }
