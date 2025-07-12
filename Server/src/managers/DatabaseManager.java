@@ -10,8 +10,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DatabaseManager {
-    private final String url = "jdbc:postgresql://localhost:5432/studs";
-    private final String user = "s434931";
+    private final String url = "jdbc:postgresql://localhost:5432/postgres";
+    private final String user = "postgres";
     private final String password = "250806";
     private Connection connection;
     private final Map<Long, HumanBeing> collection;

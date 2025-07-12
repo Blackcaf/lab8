@@ -173,7 +173,7 @@ public class AddHumanController {
             errorLabel.setText(response.getMessage());
         }
     }
-
+    
     private void showSuccessDialog(String message) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Success");

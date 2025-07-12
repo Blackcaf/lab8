@@ -2,7 +2,6 @@
     -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #1a1633, #ff2c7a 80%, #f8e2ff 100%);
 }
 
-/* Кнопки и ComboBox — как выбор языка на входе */
 .button, .combo-box {
     -fx-background-color: #44114d;
     -fx-text-fill: #fff;
@@ -31,7 +30,6 @@
     -fx-font-size: 16px;
 }
 
-/* Выпадающее меню ComboBox */
 .combo-box-popup .list-view {
     -fx-background-color: #44114d;
     -fx-background-radius: 14;
@@ -53,7 +51,6 @@
     -fx-border-radius: 12;
 }
 
-/* Список команд — стиль в тему, меньше ширина, закругление и неоновый акцент при выборе */
 .commands-list {
     -fx-background-color: #2e1b38;
     -fx-background-radius: 16;
@@ -62,7 +59,6 @@
     -fx-border-width: 2;
     -fx-effect: dropshadow(gaussian, #ff2c7add, 4, 0.4, 0, 2);
     -fx-padding: 4 0 4 0;
-    /* Высота примерно под количество команд — 13 строк по 26px + padding + рамка */
     -fx-pref-height: 360;
     -fx-max-height: 360;
     -fx-min-height: 360;
@@ -91,7 +87,6 @@
     -fx-border-radius: 12;
 }
 
-/* Поле "Аргумент" — белый текст, фиолетовый фон, больше ширина */
 .text-field {
     -fx-background-radius: 14;
     -fx-border-radius: 14;
@@ -101,7 +96,7 @@
     -fx-text-fill: #fff;
     -fx-font-size: 15px;
     -fx-padding: 8 16 8 16;
-    -fx-pref-width: 320px; /* увеличь если надо еще шире */
+    -fx-pref-width: 320px;
     -fx-effect: none;
 }
 .text-field:focused {

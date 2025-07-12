@@ -1,5 +1,4 @@
 .root {
-    /* Night city neon gradient background */
     -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #1a1633, #ff2c7a 80%, #f8e2ff 100%);
 }
 
@@ -62,7 +61,7 @@
 .combo-box .text {
     -fx-fill: #fff;
 }
-/* Верхняя часть ComboBox (как кнопка) */
+
 .combo-box.drive-field {
     -fx-background-color: #44114d;
     -fx-border-color: #fff;
@@ -75,13 +74,12 @@
     -fx-padding: 8 16 8 16;
 }
 
-/* Текст выбранного языка */
+
 .combo-box.drive-field .text {
     -fx-fill: #fff;
     -fx-font-size: 16px;
 }
 
-/* Выпадающий список (ListView) */
 .combo-box-popup .list-view {
     -fx-background-color: #44114d;
     -fx-background-radius: 10;
@@ -89,14 +87,12 @@
     -fx-effect: dropshadow(gaussian, #ff2c7add, 12, 0.6, 0, 4);
 }
 
-/* Элементы выпадающего списка */
 .combo-box-popup .list-view .list-cell {
     -fx-background-color: #44114d;
     -fx-text-fill: #fff;
     -fx-font-size: 16px;
 }
 
-/* Наведение мышки — неоновый акцент */
 .combo-box-popup .list-view .list-cell:hover,
 .combo-box-popup .list-view .list-cell:selected {
     -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #ff2c7a 30%, #7d1b97 100%);

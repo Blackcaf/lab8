@@ -58,10 +58,10 @@
     -fx-border-radius: 18;
     -fx-border-color: #fff;
     -fx-border-width: 2;
-    -fx-font-size: 17px; /* стало чуть меньше */
+    -fx-font-size: 17px;
     -fx-font-family: "Arial Black";
     -fx-font-weight: normal;
-    -fx-padding: 6 18 6 18; /* убран лишний padding */
+    -fx-padding: 6 18 6 18;
     -fx-effect: none;
 }
 .button:focused, .button:hover, .drive-btn:focused, .drive-btn:hover {
